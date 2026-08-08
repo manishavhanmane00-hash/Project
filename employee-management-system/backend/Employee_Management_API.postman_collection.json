@@ -1,0 +1,58 @@
+{
+  "info": {
+    "name": "Employee Management API",
+    "description": "CRUD endpoints for the Employee Management System backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api/employees" },
+    { "key": "employeeId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Get All Employees",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}"
+      }
+    },
+    {
+      "name": "Get Employee By Id",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/{{employeeId}}"
+      }
+    },
+    {
+      "name": "Create Employee",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane.doe@company.com\",\n  \"phone\": \"555-123-4567\",\n  \"department\": \"Engineering\",\n  \"position\": \"Software Developer\",\n  \"salary\": 75000\n}"
+        }
+      }
+    },
+    {
+      "name": "Update Employee",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/{{employeeId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"salary\": 82000,\n  \"position\": \"Senior Software Developer\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Delete Employee",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/{{employeeId}}"
+      }
+    }
+  ]
+}

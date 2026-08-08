@@ -1,0 +1,412 @@
+/* ===== Global Styles — Brew & Bite Cafe ===== */
+
+:root {
+  --cafe-brown: #6f4e37;
+  --cafe-brown-dark: #4a3728;
+  --cafe-brown-light: #a0785a;
+  --cafe-cream: #fdf6ec;
+  --cafe-orange: #ff7043;
+  --cafe-green: #2e7d32;
+  --cafe-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  --cafe-shadow-hover: 0 8px 25px rgba(0, 0, 0, 0.15);
+  --border-radius: 12px;
+  --transition: all 0.3s ease;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: var(--cafe-cream);
+  color: #333;
+  min-height: 100vh;
+}
+
+/* ===== Navbar ===== */
+.navbar-cafe {
+  background: linear-gradient(135deg, var(--cafe-brown-dark) 0%, var(--cafe-brown) 100%) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.navbar-brand-cafe {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white !important;
+  letter-spacing: 1px;
+}
+
+/* ===== Cards ===== */
+.card-cafe {
+  border: none;
+  border-radius: var(--border-radius);
+  box-shadow: var(--cafe-shadow);
+  transition: var(--transition);
+  overflow: hidden;
+  background: white;
+}
+
+.card-cafe:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--cafe-shadow-hover);
+}
+
+/* ===== Menu Category Cards ===== */
+.category-card {
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: var(--transition);
+}
+
+.category-card:hover,
+.category-card.active {
+  border-color: var(--cafe-brown);
+  transform: translateY(-4px);
+}
+
+.category-card img {
+  height: 160px;
+  object-fit: cover;
+  width: 100%;
+}
+
+/* ===== Sub-item cards ===== */
+.menu-item-card {
+  border-radius: var(--border-radius);
+  border: none;
+  box-shadow: var(--cafe-shadow);
+  transition: var(--transition);
+}
+
+.menu-item-card:hover {
+  box-shadow: var(--cafe-shadow-hover);
+}
+
+.menu-item-card img {
+  height: 180px;
+  object-fit: cover;
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+/* ===== Buttons ===== */
+.btn-cafe {
+  background: linear-gradient(135deg, var(--cafe-brown) 0%, var(--cafe-brown-light) 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.btn-cafe:hover {
+  background: linear-gradient(135deg, var(--cafe-brown-dark) 0%, var(--cafe-brown) 100%);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(111, 78, 55, 0.4);
+}
+
+.btn-cafe-outline {
+  border: 2px solid var(--cafe-brown);
+  color: var(--cafe-brown);
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.btn-cafe-outline:hover {
+  background: var(--cafe-brown);
+  color: white;
+}
+
+/* ===== Page Header ===== */
+.page-header {
+  background: linear-gradient(135deg, var(--cafe-brown-dark) 0%, var(--cafe-brown) 100%);
+  color: white;
+  padding: 40px 0;
+  margin-bottom: 30px;
+}
+
+/* ===== Stat Cards ===== */
+.stat-card {
+  border-radius: var(--border-radius);
+  border: none;
+  box-shadow: var(--cafe-shadow);
+  padding: 20px;
+  text-align: center;
+  transition: var(--transition);
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--cafe-shadow-hover);
+}
+
+.stat-card .stat-icon {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+}
+
+.stat-card .stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.stat-card .stat-label {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+/* ===== Order Status Badge ===== */
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-Placed { background: #e3f2fd; color: #1565c0; }
+.status-Preparing { background: #fff3e0; color: #e65100; }
+.status-Ready { background: #e8f5e9; color: #2e7d32; }
+.status-Out\ for\ Delivery { background: #f3e5f5; color: #6a1b9a; }
+.status-Completed { background: #e8f5e9; color: #1b5e20; }
+.status-Cancelled { background: #ffebee; color: #b71c1c; }
+
+/* ===== Order Tracking Timeline ===== */
+.tracking-timeline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  position: relative;
+}
+
+.tracking-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.tracking-step::before {
+  content: '';
+  position: absolute;
+  top: 20px;
+  right: -50%;
+  width: 100%;
+  height: 3px;
+  background: #e0e0e0;
+  z-index: 0;
+}
+
+.tracking-step:last-child::before {
+  display: none;
+}
+
+.tracking-step.active::before {
+  background: var(--cafe-brown);
+}
+
+.step-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  border: 3px solid #e0e0e0;
+  transition: var(--transition);
+}
+
+.tracking-step.active .step-circle {
+  background: var(--cafe-brown);
+  border-color: var(--cafe-brown);
+}
+
+.tracking-step.completed .step-circle {
+  background: var(--cafe-green);
+  border-color: var(--cafe-green);
+}
+
+/* ===== Cart ===== */
+.cart-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.cart-quantity-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid var(--cafe-brown);
+  background: white;
+  color: var(--cafe-brown);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.cart-quantity-btn:hover {
+  background: var(--cafe-brown);
+  color: white;
+}
+
+/* ===== Auth Forms ===== */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--cafe-brown-dark) 0%, var(--cafe-brown-light) 100%);
+}
+
+.auth-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 420px;
+}
+
+.auth-logo {
+  font-size: 3rem;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.auth-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--cafe-brown);
+  text-align: center;
+}
+
+/* ===== Payment Slip ===== */
+.payment-slip {
+  max-width: 480px;
+  margin: 0 auto;
+  border: 2px dashed var(--cafe-brown);
+  border-radius: 12px;
+  padding: 30px;
+  background: white;
+}
+
+.payment-slip-header {
+  text-align: center;
+  border-bottom: 2px dashed #e0e0e0;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+
+/* ===== Admin Sidebar ===== */
+.admin-sidebar {
+  background: linear-gradient(180deg, var(--cafe-brown-dark) 0%, #2d1f18 100%);
+  min-height: 100vh;
+  padding: 0;
+  width: 260px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.admin-sidebar .sidebar-brand {
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.admin-sidebar .nav-link {
+  color: rgba(255, 255, 255, 0.75);
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin: 2px 8px;
+  transition: var(--transition);
+  font-size: 0.9rem;
+}
+
+.admin-sidebar .nav-link:hover,
+.admin-sidebar .nav-link.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+.admin-content {
+  margin-left: 260px;
+  padding: 24px;
+  min-height: 100vh;
+  background: #f5f0eb;
+}
+
+/* ===== Tables ===== */
+.table-cafe th {
+  background: var(--cafe-cream);
+  color: var(--cafe-brown-dark);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--cafe-brown-light);
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: var(--cafe-brown-light); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--cafe-brown); }
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .admin-sidebar {
+    width: 100%;
+    min-height: auto;
+    position: relative;
+  }
+  .admin-content {
+    margin-left: 0;
+    padding: 16px;
+  }
+  .tracking-timeline {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .tracking-step::before { display: none; }
+}
+
+/* ===== Loading Spinner ===== */
+.spinner-cafe {
+  color: var(--cafe-brown);
+}
+
+/* ===== Empty State ===== */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.empty-state .empty-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
