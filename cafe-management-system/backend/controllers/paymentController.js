@@ -178,6 +178,19 @@ const recordManualPayment = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Get current user's payment history
+ * @route   GET /api/payments/my
+ * @access  Private (User)
+ */
+const getMyPayments = asyncHandler(async (req, res) => {
+  const payments = await Payment.find({ user: req.user._id })
+    .populate('order', 'items totalAmount status paymentStatus')
+    .sort({ createdAt: -1 });
+
+  res.status(200).json({ success: true, count: payments.length, data: payments });
+});
+
+/**
  * @desc    Get payment receipt/slip for an order
  * @route   GET /api/payments/receipt/:orderId
  * @access  Private
@@ -198,4 +211,4 @@ const getPaymentReceipt = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: order });
 });
 
-module.exports = { createRazorpayOrder, verifyPayment, recordManualPayment, getPaymentReceipt };
+module.exports = { createRazorpayOrder, verifyPayment, recordManualPayment, getMyPayments, getPaymentReceipt };

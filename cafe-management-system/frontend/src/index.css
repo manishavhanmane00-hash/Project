@@ -410,3 +410,187 @@ body {
   margin-bottom: 16px;
   opacity: 0.5;
 }
+
+/* ===== Welcome Popup ===== */
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.3s ease;
+}
+
+.welcome-popup {
+  background: white;
+  border-radius: 20px;
+  padding: 40px 48px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  min-width: 300px;
+}
+
+.welcome-popup-icon {
+  font-size: 3.5rem;
+  margin-bottom: 12px;
+  animation: sway 1s ease-in-out infinite alternate;
+}
+
+.welcome-popup-title {
+  font-weight: 700;
+  color: var(--cafe-brown-dark);
+  margin-bottom: 6px;
+}
+
+.welcome-popup-sub {
+  color: #888;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+.welcome-popup-bar {
+  height: 4px;
+  background: #f0e8e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.welcome-popup-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--cafe-brown), var(--cafe-brown-light));
+  border-radius: 4px;
+  animation: fillBar 2.5s linear forwards;
+}
+
+@keyframes fillBar {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+@keyframes popIn {
+  from { transform: scale(0.7); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sway {
+  from { transform: rotate(-8deg); }
+  to { transform: rotate(8deg); }
+}
+
+/* ===== Home Hero ===== */
+.home-hero {
+  background: linear-gradient(135deg, var(--cafe-brown-dark) 0%, var(--cafe-brown-light) 100%);
+  border-radius: var(--border-radius);
+  padding: 40px 32px;
+  color: white;
+  text-align: center;
+}
+
+.home-hero-emoji { font-size: 3rem; margin-bottom: 8px; }
+.home-hero-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px; }
+.home-hero-sub { opacity: 0.85; font-size: 0.95rem; }
+
+/* ===== Home Stat Cards ===== */
+.home-stat-card {
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--cafe-shadow);
+  padding: 20px 16px;
+  text-align: center;
+  transition: var(--transition);
+  display: block;
+  color: inherit;
+}
+
+.home-stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--cafe-shadow-hover);
+}
+
+.home-stat-icon { font-size: 1.8rem; margin-bottom: 6px; }
+.home-stat-value { font-size: 1.3rem; font-weight: 700; color: var(--cafe-brown-dark); }
+.home-stat-label { font-size: 0.78rem; color: #888; margin-top: 2px; }
+
+/* ===== Profile ===== */
+.profile-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--cafe-brown), var(--cafe-brown-light));
+  color: white;
+  font-size: 1.6rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.profile-label {
+  color: #888;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.profile-value {
+  font-weight: 600;
+  color: var(--cafe-brown-dark);
+  font-size: 0.95rem;
+}
+
+/* ===== Checkout Payment Option ===== */
+.checkout-payment-option {
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 10px 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: white;
+}
+
+.checkout-payment-option:hover {
+  border-color: var(--cafe-brown-light);
+  background: #fdf6ec;
+}
+
+.checkout-payment-option.selected {
+  border-color: var(--cafe-brown);
+  background: linear-gradient(135deg, #fdf6ec, #f5e6d3);
+  box-shadow: 0 2px 8px rgba(111, 78, 55, 0.2);
+}
+
+/* ===== Order Success Banner ===== */
+.order-success-banner {
+  background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+  border-radius: var(--border-radius);
+  padding: 32px 24px;
+  color: white;
+  text-align: center;
+}
+
+.order-success-icon {
+  font-size: 3rem;
+  margin-bottom: 10px;
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}

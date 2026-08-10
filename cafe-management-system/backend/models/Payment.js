@@ -59,7 +59,7 @@ const paymentSchema = new mongoose.Schema(
 );
 
 // Auto-generate receipt number before saving
-paymentSchema.pre('save', function (next) {
+paymentSchema.pre('save', function () {
   if (!this.receiptNumber) {
     // Format: CAFE-YYYYMMDD-XXXXX
     const date = new Date();
@@ -70,7 +70,6 @@ paymentSchema.pre('save', function (next) {
     const random = Math.floor(10000 + Math.random() * 90000);
     this.receiptNumber = `CAFE-${dateStr}-${random}`;
   }
-  next();
 });
 
 module.exports = mongoose.model('Payment', paymentSchema);
