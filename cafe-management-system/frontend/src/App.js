@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 
 // Pages
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import UserDashboard from './pages/UserDashboard';
@@ -20,7 +21,7 @@ const ProtectedRoute = ({ children }) => {
   if (loading) return <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
     <div className="spinner-border spinner-cafe" role="status" />
   </div>;
-  return isAuthenticated() ? children : <Navigate to="/login" replace />;
+  return isAuthenticated() ? children : <Navigate to="/" replace />;
 };
 
 /**
@@ -29,7 +30,7 @@ const ProtectedRoute = ({ children }) => {
 const AdminRoute = ({ children }) => {
   const { isAuthenticated, isAdmin, loading } = useAuth();
   if (loading) return null;
-  if (!isAuthenticated()) return <Navigate to="/login" replace />;
+  if (!isAuthenticated()) return <Navigate to="/" replace />;
   if (!isAdmin()) return <Navigate to="/dashboard" replace />;
   return children;
 };
@@ -49,6 +50,9 @@ const PublicRoute = ({ children }) => {
 function AppRoutes() {
   return (
     <Routes>
+      {/* Home */}
+      <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
+
       {/* Public Routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
@@ -59,9 +63,8 @@ function AppRoutes() {
       {/* Admin Routes */}
       <Route path="/admin/*" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
 
-      {/* Default redirect */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
