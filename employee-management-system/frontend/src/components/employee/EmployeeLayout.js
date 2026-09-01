@@ -2,23 +2,23 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
-import Sidebar from './Sidebar';
-import Header from './Header';
+import EmployeeSidebar from './EmployeeSidebar';
+import EmployeeHeader from './EmployeeHeader';
 
-const AppLayout = () => {
+const EmployeeLayout = () => {
   const { user } = useAuth();
   const { sidebarCollapsed } = useApp();
 
   if (!user) return <Navigate to="/login" replace />;
 
-  // Employees must use the employee portal — redirect them
-  if (user.role === 'Employee') return <Navigate to="/employee/dashboard" replace />;
+  // Admins/HR/Managers go back to admin dashboard if they land on employee routes
+  if (user.role !== 'Employee') return <Navigate to="/dashboard" replace />;
 
   return (
     <div className="app-layout">
-      <Sidebar />
+      <EmployeeSidebar />
       <div className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-        <Header />
+        <EmployeeHeader />
         <main className="page-container">
           <Outlet />
         </main>
@@ -27,4 +27,4 @@ const AppLayout = () => {
   );
 };
 
-export default AppLayout;
+export default EmployeeLayout;

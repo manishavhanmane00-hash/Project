@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import AppLayout from './components/layout/AppLayout';
+import EmployeeLayout from './components/employee/EmployeeLayout';
 
 // Auth Pages
 import Login          from './pages/auth/Login';
@@ -12,42 +13,48 @@ import Register       from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword  from './pages/auth/ResetPassword';
 
-// Main Pages
+// Other
+import Unauthorized from './pages/Unauthorized';
+
+// ── Admin / HR Pages ─────────────────────────────────────────────────────────
 import Dashboard from './pages/Dashboard';
 
-// Employee Pages
 import EmployeeList    from './pages/employees/EmployeeList';
 import AddEmployee     from './pages/employees/AddEmployee';
 import EmployeeProfile from './pages/employees/EmployeeProfile';
 
-// Department Pages
 import Departments from './pages/departments/Departments';
 import Roles       from './pages/departments/Roles';
 
-// Attendance Pages
 import DailyAttendance   from './pages/attendance/DailyAttendance';
 import AttendanceHistory from './pages/attendance/AttendanceHistory';
 import AttendanceReports from './pages/attendance/AttendanceReports';
 
-// Leave Pages
 import LeaveRequests from './pages/leave/LeaveRequests';
 import ApplyLeave    from './pages/leave/ApplyLeave';
 import LeaveApproval from './pages/leave/LeaveApproval';
 import LeaveBalance  from './pages/leave/LeaveBalance';
 
-// Payroll Pages
 import SalaryStructure from './pages/payroll/SalaryStructure';
 import GeneratePayroll from './pages/payroll/GeneratePayroll';
 import PayrollHistory  from './pages/payroll/PayrollHistory';
 import Payslips        from './pages/payroll/Payslips';
 
-// Performance Pages
 import PerformanceReviews from './pages/performance/PerformanceReviews';
 import Goals              from './pages/performance/Goals';
 
-// Other Pages
 import Reports  from './pages/Reports';
 import Settings from './pages/Settings';
+
+// ── Employee Portal Pages ─────────────────────────────────────────────────────
+import EmployeeDashboard    from './pages/employee/EmployeeDashboard';
+import EmployeeProfilePage  from './pages/employee/EmployeeProfile';
+import EmployeeAttendance   from './pages/employee/EmployeeAttendance';
+import EmployeeLeave        from './pages/employee/EmployeeLeave';
+import EmployeePayroll      from './pages/employee/EmployeePayroll';
+import EmployeePerformance  from './pages/employee/EmployeePerformance';
+import EmployeeNotifications from './pages/employee/EmployeeNotifications';
+import EmployeeSettings     from './pages/employee/EmployeeSettings';
 
 function App() {
   return (
@@ -77,8 +84,24 @@ function App() {
             <Route path="/register"        element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password"  element={<ResetPassword />} />
+            <Route path="/unauthorized"    element={<Unauthorized />} />
 
-            {/* ── Protected Routes (requires login) ────────────────── */}
+            {/* ── Employee Portal Routes ───────────────────────────── */}
+            <Route element={<EmployeeLayout />}>
+              <Route path="/employee"              element={<Navigate to="/employee/dashboard" replace />} />
+              <Route path="/employee/dashboard"    element={<EmployeeDashboard />} />
+              <Route path="/employee/profile"      element={<EmployeeProfilePage />} />
+              <Route path="/employee/attendance"   element={<EmployeeAttendance />} />
+              <Route path="/employee/leave"        element={<EmployeeLeave />} />
+              <Route path="/employee/payroll"      element={<EmployeePayroll />} />
+              <Route path="/employee/performance"  element={<EmployeePerformance />} />
+              <Route path="/employee/notifications" element={<EmployeeNotifications />} />
+              <Route path="/employee/settings"     element={<EmployeeSettings />} />
+              {/* Any unknown /employee/* path */}
+              <Route path="/employee/*"            element={<Navigate to="/employee/dashboard" replace />} />
+            </Route>
+
+            {/* ── Admin / HR Protected Routes ───────────────────────── */}
             <Route element={<AppLayout />}>
               {/* Dashboard */}
               <Route path="/"          element={<Navigate to="/dashboard" replace />} />
@@ -126,10 +149,10 @@ function App() {
               {/* Settings */}
               <Route path="/settings"         element={<Settings />} />
               <Route path="/settings/profile" element={<Settings initialSection="profile" />} />
-
-              {/* Catch-all */}
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
+
+            {/* ── Catch-all ────────────────────────────────────────── */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </BrowserRouter>
       </AppProvider>

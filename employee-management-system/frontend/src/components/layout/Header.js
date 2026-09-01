@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Menu, Search, Bell, Sun, Moon, User, ChevronDown,
+  Menu, Search, Bell, User, ChevronDown,
   Settings, LogOut, HelpCircle, Calendar, Users, DollarSign, Clock
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -10,7 +10,7 @@ import Avatar from '../shared/Avatar';
 import Badge from '../shared/Badge';
 
 const Header = () => {
-  const { sidebarCollapsed, toggleSidebar, theme, toggleTheme, setMobileSidebarOpen,
+  const { sidebarCollapsed, toggleSidebar, setMobileSidebarOpen,
           leaveRequests, employees, payrollData, attendanceData } = useApp();
   const { user, logout } = useAuth();
   const navigate     = useNavigate();
@@ -117,12 +117,6 @@ const Header = () => {
 
       {/* Right-hand actions */}
       <div className="header-actions">
-        {/* Theme toggle */}
-        <button className="header-btn" onClick={toggleTheme}
-          title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
-          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-        </button>
-
         {/* Notifications */}
         <div className="dropdown" ref={notifRef}>
           <button className="header-btn" onClick={() => setShowNotif(o => !o)} title="Notifications">

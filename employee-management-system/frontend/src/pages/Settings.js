@@ -5,7 +5,6 @@ import {
   Save, Camera, UserPlus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useApp } from '../context/AppContext';
 import Avatar from '../components/shared/Avatar';
 import Modal from '../components/shared/Modal';
 import toast from 'react-hot-toast';
@@ -60,7 +59,7 @@ const Toggle = ({ label, desc, defaultChecked }) => {
 };
 
 /* ── Section content ───────────────────────────────────────────────────── */
-const SectionContent = ({ section, user, theme, toggleTheme, registry }) => {
+const SectionContent = ({ section, user, registry }) => {
   const [saving, setSaving] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const { register } = useAuth();
@@ -426,15 +425,6 @@ const SectionContent = ({ section, user, theme, toggleTheme, registry }) => {
             <Field label="Time Format"        defaultValue="12-hour (AM/PM)"  />
           </div>
           <div className="divider" />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid var(--border)' }}>
-            <div>
-              <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>Dark Mode</div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Toggle between light and dark theme</div>
-            </div>
-            <button className="btn btn-outline btn-sm" onClick={toggleTheme}>
-              {theme === 'light' ? '🌙 Switch to Dark' : '☀️ Switch to Light'}
-            </button>
-          </div>
           <Toggle label="Compact View"                    desc="Reduce padding and spacing throughout the app" defaultChecked={false} />
           <Toggle label="Show Employee Photos"                                                                 defaultChecked={true}  />
           <Toggle label="Enable Two-Factor Authentication"                                                     defaultChecked={false} />
@@ -453,7 +443,6 @@ const SectionContent = ({ section, user, theme, toggleTheme, registry }) => {
 /* ── Settings Page ─────────────────────────────────────────────────────── */
 const Settings = ({ initialSection }) => {
   const { user, getRegistry } = useAuth();
-  const { theme, toggleTheme } = useApp();
   const [activeSection, setActiveSection] = useState(initialSection || 'company');
 
   const registry = getRegistry ? getRegistry() : [];
@@ -505,8 +494,6 @@ const Settings = ({ initialSection }) => {
             <SectionContent
               section={activeSection}
               user={user}
-              theme={theme}
-              toggleTheme={toggleTheme}
               registry={registry}
             />
           </div>

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, UserPlus, Building2, Briefcase,
-  Clock, CalendarDays, BarChart3, CalendarCheck, PlaneTakeoff,
-  CheckCircle, Wallet, DollarSign, FileText, Star, Target,
-  Settings, ChevronRight, LogOut, ClipboardList, TrendingUp,
-  Receipt, Shield, Menu
+  LayoutDashboard, Users, Building2, Briefcase,
+  Clock, BarChart3, PlaneTakeoff,
+  DollarSign, Star,
+  Settings, ChevronRight, LogOut,
+  Shield
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';

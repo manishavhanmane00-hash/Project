@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import {
   EMPLOYEES, DEPARTMENTS, DESIGNATIONS, LEAVE_REQUESTS,
   LEAVE_BALANCES, ATTENDANCE_DATA, PAYROLL_DATA, PERFORMANCE_REVIEWS
@@ -13,9 +13,6 @@ export const useApp = () => {
 };
 
 export const AppProvider = ({ children }) => {
-  // ── Theme ────────────────────────────────────────────────────────────────
-  const [theme, setTheme] = useState(() => localStorage.getItem('ems-theme') || 'light');
-
   // ── Sidebar ──────────────────────────────────────────────────────────────
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -30,6 +27,9 @@ export const AppProvider = ({ children }) => {
   const [payrollData,       setPayrollData]       = useState(PAYROLL_DATA);
   const [performanceReviews, setPerformanceReviews] = useState(PERFORMANCE_REVIEWS);
 
+  // ── Employee notifications ────────────────────────────────────────────────
+  const [notifications, setNotifications] = useState([]);
+
   // ── Currency config (INR) ────────────────────────────────────────────────
   const currency = {
     code:   'INR',
@@ -37,12 +37,6 @@ export const AppProvider = ({ children }) => {
     locale: 'en-IN',
   };
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('ems-theme', theme);
-  }, [theme]);
-
-  const toggleTheme  = () => setTheme(t => t === 'light' ? 'dark' : 'light');
   const toggleSidebar = () => setSidebarCollapsed(c => !c);
 
   // ── Employee CRUD ────────────────────────────────────────────────────────
@@ -117,9 +111,27 @@ export const AppProvider = ({ children }) => {
     });
   };
 
+  // ── Notifications ─────────────────────────────────────────────────────────
+  const addNotification = (notif) => {
+    const newNotif = {
+      ...notif,
+      id: Date.now(),
+      createdAt: new Date().toISOString(),
+      read: false,
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  const markNotifRead = (id) =>
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+
+  const markAllNotifsRead = () =>
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+
+  const deleteNotif = (id) =>
+    setNotifications(prev => prev.filter(n => n.id !== id));
+
   const value = {
-    // theme
-    theme, toggleTheme,
     // sidebar
     sidebarCollapsed, toggleSidebar, setSidebarCollapsed,
     mobileSidebarOpen, setMobileSidebarOpen,
@@ -134,6 +146,7 @@ export const AppProvider = ({ children }) => {
     attendanceData,    markAttendance,
     payrollData,       generatePayroll,  approvePayroll,
     performanceReviews, setPerformanceReviews,
+    notifications, addNotification, markNotifRead, markAllNotifsRead, deleteNotif,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
