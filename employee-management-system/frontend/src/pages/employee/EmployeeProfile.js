@@ -35,11 +35,14 @@ const EmployeeProfilePage = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    await new Promise(r => setTimeout(r, 500));
-    if (updateProfile) updateProfile(form);
-    toast.success('Profile updated');
+    const result = await updateProfile(form);
     setSaving(false);
-    setEditing(false);
+    if (result?.success !== false) {
+      toast.success('Profile updated successfully');
+      setEditing(false);
+    } else {
+      toast.error(result?.error || 'Failed to update profile. Please try again.');
+    }
   };
 
   const documents = [

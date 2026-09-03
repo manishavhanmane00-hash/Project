@@ -52,15 +52,16 @@ const EmployeeSettings = () => {
 
   const handleSaveProfile = async () => {
     setSavingProfile(true);
-    await new Promise(r => setTimeout(r, 500));
-    if (updateProfile) {
-      updateProfile({
-        name: `${profile.firstName} ${profile.lastName}`.trim(),
-        phone: profile.phone,
-      });
-    }
-    toast.success('Profile updated successfully');
+    const result = await updateProfile({
+      name: `${profile.firstName} ${profile.lastName}`.trim(),
+      phone: profile.phone,
+    });
     setSavingProfile(false);
+    if (result?.success !== false) {
+      toast.success('Profile updated successfully');
+    } else {
+      toast.error(result?.error || 'Failed to update profile. Please try again.');
+    }
   };
 
   const handleChangePwd = async (e) => {
@@ -72,15 +73,15 @@ const EmployeeSettings = () => {
     if (Object.keys(errs).length > 0) { setPwdErrors(errs); return; }
 
     setSavingPwd(true);
-    await new Promise(r => setTimeout(r, 500));
-    if (changePassword) {
-      const res = changePassword(pwd.current, pwd.newPwd);
-      if (!res.success) { setPwdErrors({ current: res.error }); setSavingPwd(false); return; }
+    const res = await changePassword(pwd.current, pwd.newPwd);
+    setSavingPwd(false);
+    if (!res.success) {
+      setPwdErrors({ current: res.error || 'Password change failed' });
+      return;
     }
     toast.success('Password changed successfully');
     setPwd({ current: '', newPwd: '', confirm: '' });
     setPwdErrors({});
-    setSavingPwd(false);
   };
 
   const renderAccount = () => (

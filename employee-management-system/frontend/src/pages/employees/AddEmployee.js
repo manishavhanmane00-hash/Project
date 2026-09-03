@@ -87,7 +87,6 @@ const AddEmployee = () => {
     const errs = validate(step);
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setSaving(true);
-    await new Promise(r => setTimeout(r, 600));
     const empData = {
       ...form,
       name: `${form.firstName} ${form.lastName}`.trim(),
@@ -97,15 +96,20 @@ const AddEmployee = () => {
       bonus: Number(form.bonus) || 0,
       deductions: Number(form.deductions) || 0,
     };
-    if (isEdit) {
-      updateEmployee(id, empData);
-      toast.success('Employee updated successfully');
-    } else {
-      addEmployee(empData);
-      toast.success('Employee created successfully');
+    try {
+      if (isEdit) {
+        await updateEmployee(id, empData);
+        toast.success('Employee updated successfully');
+      } else {
+        await addEmployee(empData);
+        toast.success('Employee created successfully');
+      }
+      navigate('/employees/list');
+    } catch (err) {
+      toast.error(err.message || 'Failed to save employee. Please try again.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    navigate('/employees/list');
   };
 
   const StepCircle = ({ s }) => {

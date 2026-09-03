@@ -1,14 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Download, CheckCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import Avatar from '../../components/shared/Avatar';
 import Badge from '../../components/shared/Badge';
 import { formatINR } from '../../utils/currency';
+import AIChatPanel from '../../components/ai/AIChatPanel';
+import { useAI } from '../../hooks/useAI';
 import toast from 'react-hot-toast';
 
 const PayrollHistory = () => {
   const { payrollData, approvePayroll } = useApp();
+  const { user } = useAuth();
   const [filter, setFilter] = useState('');
+
+  // AI
+  const ai = useAI(user);
+  const handlePayrollAI = useCallback(async (message) => {
+    const result = await ai.adminChat(message, { employees: [], attendance: [], leave: [], payroll: payrollData, performance: [] });
+    if (!result) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
+    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable. Please try again.';
+    return result.answer || 'I could not generate a response. Please try rephrasing your question.';
+  }, [ai, payrollData]);
 
   const pending  = payrollData.filter(p => p.status === 'pending').length;
   const approved = payrollData.filter(p => p.status === 'approved').length;
@@ -71,12 +84,15 @@ const PayrollHistory = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p => {
+            {filtered.map(p => {
                 const net        = getNet(p);
                 const deductions = (p.tax || 0) + (p.insurance || 0) + (p.otherDeductions || 0);
+                const pid        = p._id || p.id;
                 return (
-                  <tr key={p.id}>
-                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.id}</td>
+                  <tr key={pid}>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      {String(pid).slice(-8).toUpperCase()}
+                    </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <Avatar name={p.employeeName} size="sm" />
@@ -97,7 +113,14 @@ const PayrollHistory = () => {
                       <div className="table-actions">
                         {p.status === 'pending' && (
                           <button className="btn btn-sm btn-success"
-                            onClick={() => { approvePayroll(p.id); toast.success(`Payroll approved for ${p.employeeName}`); }}>
+                            onClick={async () => {
+                              try {
+                                await approvePayroll(pid);
+                                toast.success(`Payroll approved for ${p.employeeName}`);
+                              } catch (err) {
+                                toast.error(err.message || 'Failed to approve payroll');
+                              }
+                            }}>
                             <CheckCircle size={12} /> Approve
                           </button>
                         )}
@@ -114,6 +137,22 @@ const PayrollHistory = () => {
           </table>
         </div>
       )}
+
+      {/* AI Payroll Insights */}
+      <div style={{ marginTop: 24 }}>
+        <AIChatPanel
+          title="AI Payroll Insights"
+          onSend={handlePayrollAI}
+          loading={ai.loading}
+          suggestions={[
+            'What is the total payroll this month?',
+            'Which department has the highest payroll?',
+            'Summarize bonuses and deductions',
+            'Show payroll trends',
+          ]}
+          placeholder="Ask about payroll totals, department distribution, bonuses..."
+        />
+      </div>
     </div>
   );
 };

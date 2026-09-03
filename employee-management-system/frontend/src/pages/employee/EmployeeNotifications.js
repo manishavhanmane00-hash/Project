@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Bell, Check, CheckCheck, Trash2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
+import AIChatPanel from '../../components/ai/AIChatPanel';
+import { useAI } from '../../hooks/useAI';
 import toast from 'react-hot-toast';
 
 const NOTIF_ICONS = {
@@ -13,50 +16,48 @@ const NOTIF_ICONS = {
 };
 
 const EmployeeNotifications = () => {
-  const { notifications, markNotifRead, markAllNotifsRead, deleteNotif, addNotification } = useApp();
+  const { notifications, markNotifRead, markAllNotifsRead, deleteNotif } = useApp();
+  const { user } = useAuth();
   const [filter, setFilter] = useState('all');
 
+  const ai = useAI(user);
+  const handleNotifAI = useCallback(async (message) => {
+    const notifContext = (notifications || []).slice(0, 20).map(n => ({
+      type: n.type,
+      message: n.message,
+      read: n.isRead || n.read,
+      date: n.createdAt,
+    }));
+    const result = await ai.employeeChat(message, {
+      myAttendance: [], myLeave: [], myPayroll: [], myPerformance: [],
+      notifications: notifContext, userProfile: {},
+    });
+    if (!result) return 'AI Assistant is temporarily unavailable.';
+    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable.';
+    return result.answer || 'I could not generate a response.';
+  }, [ai, notifications]);
+
   const filtered = (notifications || []).filter(n => {
-    if (filter === 'unread') return !n.read;
-    if (filter === 'read')   return n.read;
+    const read = n.isRead || n.read;
+    if (filter === 'unread') return !read;
+    if (filter === 'read')   return  read;
     return true;
   });
 
-  const unreadCount = (notifications || []).filter(n => !n.read).length;
+  const unreadCount = (notifications || []).filter(n => !(n.isRead || n.read)).length;
 
-  const handleMarkRead = (id) => {
-    markNotifRead(id);
-  };
-
-  const handleMarkAll = () => {
-    markAllNotifsRead();
-    toast.success('All notifications marked as read');
-  };
-
-  const handleDelete = (id) => {
-    deleteNotif(id);
-    toast.success('Notification deleted');
-  };
+  const handleMarkRead  = (id) => markNotifRead(id);
+  const handleMarkAll   = () => { markAllNotifsRead(); toast.success('All notifications marked as read'); };
+  const handleDelete    = (id) => { deleteNotif(id); toast.success('Notification deleted'); };
 
   const formatTime = (iso) => {
     if (!iso) return '';
     try {
-      const d = new Date(iso);
-      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return new Date(iso).toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      });
     } catch { return iso; }
-  };
-
-  // Demo notifications to show when empty
-  const handleAddDemo = () => {
-    const demos = [
-      { type: 'leave',        message: 'Your Annual Leave request has been approved by HR' },
-      { type: 'payroll',      message: 'Your payslip for August 2026 is now available' },
-      { type: 'attendance',   message: 'Attendance reminder: Please mark your attendance' },
-      { type: 'performance',  message: 'Your performance review for Q2 2026 has been completed' },
-      { type: 'announcement', message: 'Company announcement: Office closed on 15th August' },
-    ];
-    demos.forEach(d => addNotification(d));
-    toast.success('Sample notifications added');
   };
 
   return (
@@ -66,7 +67,9 @@ const EmployeeNotifications = () => {
           <div>
             <h1 className="page-title">Notifications</h1>
             <p className="page-subtitle">
-              {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
+              {unreadCount > 0
+                ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
+                : 'All caught up!'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -82,7 +85,7 @@ const EmployeeNotifications = () => {
       {/* Filter Tabs */}
       <div className="card" style={{ marginBottom: 16, padding: '10px 16px' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {[['all', 'All'], ['unread', 'Unread'], ['read', 'Read']].map(([v, l]) => (
+          {[['all','All'], ['unread','Unread'], ['read','Read']].map(([v, l]) => (
             <button
               key={v}
               className={`btn btn-sm ${filter === v ? 'btn-primary' : 'btn-outline'}`}
@@ -90,7 +93,9 @@ const EmployeeNotifications = () => {
             >
               {l}
               {v === 'unread' && unreadCount > 0 && (
-                <span className="badge badge-danger" style={{ marginLeft: 6, fontSize: '0.65rem' }}>{unreadCount}</span>
+                <span className="badge badge-danger" style={{ marginLeft: 6, fontSize: '0.65rem' }}>
+                  {unreadCount}
+                </span>
               )}
             </button>
           ))}
@@ -107,36 +112,32 @@ const EmployeeNotifications = () => {
             <Bell size={48} color="var(--text-muted)" />
           </div>
           <div className="empty-state-title">
-            {filter === 'unread' ? 'No unread notifications' : filter === 'read' ? 'No read notifications' : 'No notifications yet'}
+            {filter === 'unread' ? 'No unread notifications'
+              : filter === 'read' ? 'No read notifications'
+              : 'No notifications yet'}
           </div>
           <div className="empty-state-desc">
-            {filter === 'all' && 'Notifications about your leave, payroll, attendance, and performance will appear here'}
+            {filter === 'all' &&
+              'Notifications about your leave, payroll, attendance, and performance will appear here'}
           </div>
-          {filter === 'all' && (
-            <button className="btn btn-outline btn-sm" style={{ marginTop: 16 }} onClick={handleAddDemo}>
-              Add Sample Notifications
-            </button>
-          )}
         </div>
       ) : (
         <div className="card">
           <div className="card-body" style={{ padding: 0 }}>
             {filtered.map(n => {
               const cfg = NOTIF_ICONS[n.type] || NOTIF_ICONS.default;
+              const nid = n._id || n.id;
+              const isRead = n.isRead || n.read;
               return (
                 <div
-                  key={n.id}
+                  key={nid}
                   style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 14,
-                    padding: '16px 20px',
-                    borderBottom: '1px solid var(--border)',
-                    background: n.read ? 'transparent' : 'var(--primary-light)',
-                    transition: 'background 0.2s',
-                    cursor: 'pointer',
+                    display: 'flex', alignItems: 'flex-start', gap: 14,
+                    padding: '16px 20px', borderBottom: '1px solid var(--border)',
+                    background: isRead ? 'transparent' : 'var(--primary-light)',
+                    transition: 'background 0.2s', cursor: 'pointer',
                   }}
-                  onClick={() => !n.read && handleMarkRead(n.id)}
+                  onClick={() => !isRead && handleMarkRead(nid)}
                 >
                   {/* Icon */}
                   <div style={{
@@ -151,10 +152,10 @@ const EmployeeNotifications = () => {
                   <div style={{ flex: 1 }}>
                     <div style={{
                       fontSize: '0.875rem', lineHeight: 1.5,
-                      color: n.read ? 'var(--text-secondary)' : 'var(--text-primary)',
-                      fontWeight: n.read ? 400 : 500,
+                      color: isRead ? 'var(--text-secondary)' : 'var(--text-primary)',
+                      fontWeight: isRead ? 400 : 500,
                     }}>
-                      {n.message}
+                      {n.title && <strong>{n.title}: </strong>}{n.message}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
                       {formatTime(n.createdAt)}
@@ -163,14 +164,14 @@ const EmployeeNotifications = () => {
 
                   {/* Actions */}
                   <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
-                    {!n.read && (
+                    {!isRead && (
                       <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', marginRight: 6 }} />
                     )}
-                    {!n.read && (
+                    {!isRead && (
                       <button
                         className="btn-icon"
                         title="Mark as read"
-                        onClick={(e) => { e.stopPropagation(); handleMarkRead(n.id); }}
+                        onClick={(e) => { e.stopPropagation(); handleMarkRead(nid); }}
                         style={{ background: 'none' }}
                       >
                         <Check size={14} color="var(--success)" />
@@ -179,7 +180,7 @@ const EmployeeNotifications = () => {
                     <button
                       className="btn-icon danger"
                       title="Delete"
-                      onClick={(e) => { e.stopPropagation(); handleDelete(n.id); }}
+                      onClick={(e) => { e.stopPropagation(); handleDelete(nid); }}
                       style={{ background: 'none' }}
                     >
                       <Trash2 size={14} />
@@ -191,6 +192,22 @@ const EmployeeNotifications = () => {
           </div>
         </div>
       )}
+
+      {/* AI Notification Assistant */}
+      <div style={{ marginTop: 24 }}>
+        <AIChatPanel
+          title="AI Notification Summary"
+          onSend={handleNotifAI}
+          loading={ai.loading}
+          suggestions={[
+            'Summarize my recent notifications',
+            'What important updates do I have?',
+            'Is my leave request approved?',
+            'Do I have any payroll notifications?',
+          ]}
+          placeholder="Ask about your notifications..."
+        />
+      </div>
     </div>
   );
 };

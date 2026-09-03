@@ -1,26 +1,23 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
-// ── Load Google Identity Services script once ────────────────────────────────
 const loadGoogleScript = () => {
   if (document.getElementById('google-gsi-script')) return;
   const script = document.createElement('script');
-  script.id  = 'google-gsi-script';
+  script.id = 'google-gsi-script';
   script.src = 'https://accounts.google.com/gsi/client';
   script.async = true;
   script.defer = true;
   document.head.appendChild(script);
 };
 
-// ── Decode a JWT ID token (header.payload.sig) without a library ─────────────
 const decodeJwt = (token) => {
   try {
     const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
     return JSON.parse(atob(base64));
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 };
 
 export const useAuth = () => {
@@ -29,167 +26,124 @@ export const useAuth = () => {
   return ctx;
 };
 
-// ── User registry — stored in localStorage, no pre-loaded demo accounts ──────
-// The first account created automatically gets the Admin role.
-const STORAGE_KEY = 'ems-users-registry';
-
-const loadRegistry = () => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveRegistry = (users) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-};
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     try {
       const saved = localStorage.getItem('ems-user');
       return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   });
   const [loading, setLoading] = useState(false);
 
-  // Pre-load the Google script as soon as AuthProvider mounts
   useEffect(() => { loadGoogleScript(); }, []);
 
-  // ── Login ────────────────────────────────────────────────────────────────
-  const login = async (email, password, remember = false) => {
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 600)); // simulate network
-
-    const registry = loadRegistry();
-    const found = registry.find(
-      u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    );
-
-    setLoading(false);
-
-    if (found) {
-      const { password: _pw, ...userInfo } = found;
-      setUser(userInfo);
-      if (remember) localStorage.setItem('ems-user', JSON.stringify(userInfo));
-      return { success: true, role: userInfo.role };
-    }
-    return { success: false, error: 'Invalid email or password' };
-  };
-
-  // ── Register / Create account ────────────────────────────────────────────
-  const register = async (data) => {
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
-
-    const registry = loadRegistry();
-    const exists = registry.some(u => u.email.toLowerCase() === data.email.toLowerCase());
-
-    if (exists) {
-      setLoading(false);
-      return { success: false, error: 'An account with this email already exists' };
-    }
-
-    // First registered account is always Admin
-    const isFirst = registry.length === 0;
-    const newUser = {
-      id: Date.now(),
-      name: data.name,
-      email: data.email,
-      password: data.password,
-      role: isFirst ? 'Admin' : (data.role || 'Employee'),
-      designation: data.designation || '',
-      department: data.department || '',
-    };
-
-    const updated = [...registry, newUser];
-    saveRegistry(updated);
-
-    const { password: _pw, ...userInfo } = newUser;
+  const persistUser = (userInfo, token) => {
     setUser(userInfo);
     localStorage.setItem('ems-user', JSON.stringify(userInfo));
-
-    setLoading(false);
-    return { success: true, isFirstUser: isFirst };
+    if (token) localStorage.setItem('ems-token', token);
   };
 
-  // ── Google Sign-In ────────────────────────────────────────────────────────
-  // Called with the credential response object from Google's callback.
-  // Integrates into the existing localStorage registry:
-  //   • Existing email  → log in as that user (preserving their role)
-  //   • New email       → register as Employee (or Admin if first account)
+  // ── Login ──────────────────────────────────────────────────────────────────
+  const login = async (email, password) => {
+    setLoading(true);
+    try {
+      const { data } = await authAPI.login({ email, password });
+      if (data.success) {
+        persistUser(data.user, data.token);
+        setLoading(false);
+        return { success: true, role: data.user.role };
+      }
+      setLoading(false);
+      return { success: false, error: data.message };
+    } catch (err) {
+      setLoading(false);
+      return { success: false, error: err.response?.data?.message || 'Login failed' };
+    }
+  };
+
+  // ── Register ───────────────────────────────────────────────────────────────
+  const register = async (data) => {
+    setLoading(true);
+    try {
+      const res = await authAPI.register(data);
+      if (res.data.success) {
+        persistUser(res.data.user, res.data.token);
+        setLoading(false);
+        return { success: true, isFirstUser: res.data.isFirstUser };
+      }
+      setLoading(false);
+      return { success: false, error: res.data.message };
+    } catch (err) {
+      setLoading(false);
+      return { success: false, error: err.response?.data?.message || 'Registration failed' };
+    }
+  };
+
+  // ── Google Sign-In ─────────────────────────────────────────────────────────
   const loginWithGoogle = async (credentialResponse) => {
     setLoading(true);
-    await new Promise(r => setTimeout(r, 400)); // brief UX pause
-
     try {
       const payload = decodeJwt(credentialResponse?.credential);
-      if (!payload || !payload.email) {
+      if (!payload?.email) {
         setLoading(false);
-        return { success: false, error: 'Could not read Google account information. Please try again.' };
+        return { success: false, error: 'Could not read Google account information.' };
       }
-
-      // Validate token is not expired
       if (payload.exp && payload.exp * 1000 < Date.now()) {
         setLoading(false);
         return { success: false, error: 'Google session expired. Please sign in again.' };
       }
-
-      const registry = loadRegistry();
-      const email    = payload.email.toLowerCase();
-      const existing = registry.find(u => u.email.toLowerCase() === email);
-
-      let userInfo;
-
-      if (existing) {
-        // ── Existing account: sign in, preserve role ──────────────────────
-        const { password: _pw, ...info } = existing;
-        userInfo = info;
-      } else {
-        // ── New account: register via Google ─────────────────────────────
-        const isFirst = registry.length === 0;
-        const newUser = {
-          id:          Date.now(),
-          name:        payload.name  || email.split('@')[0],
-          email,
-          password:    null,          // Google-only account — no password
-          role:        isFirst ? 'Admin' : 'Employee',
-          designation: '',
-          department:  '',
-          googleId:    payload.sub,
-          avatar:      payload.picture || null,
-        };
-        saveRegistry([...registry, newUser]);
-        const { password: _pw, ...info } = newUser;
-        userInfo = info;
+      const res = await authAPI.googleLogin({
+        email: payload.email,
+        name: payload.name,
+        googleId: payload.sub,
+        avatar: payload.picture || null,
+      });
+      if (res.data.success) {
+        persistUser(res.data.user, res.data.token);
+        setLoading(false);
+        return { success: true, role: res.data.user.role, isNew: res.data.isNew };
       }
-
-      setUser(userInfo);
-      localStorage.setItem('ems-user', JSON.stringify(userInfo));
       setLoading(false);
-      return { success: true, role: userInfo.role, isNew: !existing };
-
-    } catch {
+      return { success: false, error: res.data.message };
+    } catch (err) {
       setLoading(false);
-      return { success: false, error: 'Google sign-in failed. Please try again.' };
+      return { success: false, error: err.response?.data?.message || 'Google sign-in failed.' };
     }
   };
 
-  // ── Logout ───────────────────────────────────────────────────────────────
+  // ── Logout ─────────────────────────────────────────────────────────────────
   const logout = () => {
     setUser(null);
     localStorage.removeItem('ems-user');
-    // Revoke Google session so the account-picker shows on next login
-    if (window.google?.accounts?.id) {
-      window.google.accounts.id.disableAutoSelect();
+    localStorage.removeItem('ems-token');
+    if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
+  };
+
+  // ── Update profile (calls backend) ────────────────────────────────────────
+  const updateProfile = async (data) => {
+    try {
+      const res = await authAPI.updateMe(data);
+      if (res.data.success) {
+        persistUser(res.data.user, res.data.token);
+        return { success: true };
+      }
+      return { success: false, error: res.data.message };
+    } catch (err) {
+      return { success: false, error: err.response?.data?.message || 'Update failed' };
     }
   };
 
-  // ── Permission helper ────────────────────────────────────────────────────
+  // ── Change password ────────────────────────────────────────────────────────
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      const res = await authAPI.changePassword({ currentPassword, newPassword });
+      return res.data.success ? { success: true } : { success: false, error: res.data.message };
+    } catch (err) {
+      return { success: false, error: err.response?.data?.message || 'Password change failed' };
+    }
+  };
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
   const hasPermission = (permission) => {
     if (!user) return false;
     const map = {
@@ -202,41 +156,21 @@ export const AuthProvider = ({ children }) => {
     return perms.includes('*') || perms.includes(permission);
   };
 
-  // ── Update current user profile ──────────────────────────────────────────
-  const updateProfile = (data) => {
-    const registry = loadRegistry();
-    const updated = registry.map(u =>
-      u.id === user.id ? { ...u, ...data } : u
-    );
-    saveRegistry(updated);
-    const newUser = { ...user, ...data };
-    setUser(newUser);
-    localStorage.setItem('ems-user', JSON.stringify(newUser));
-    return { success: true };
-  };
-
-  // ── Change password ───────────────────────────────────────────────────────
-  const changePassword = (currentPassword, newPassword) => {
-    const registry = loadRegistry();
-    const found = registry.find(u => u.id === user.id);
-    if (!found || found.password !== currentPassword) {
-      return { success: false, error: 'Current password is incorrect' };
-    }
-    const updated = registry.map(u => u.id === user.id ? { ...u, password: newPassword } : u);
-    saveRegistry(updated);
-    return { success: true };
-  };
-
-  // ── Helpers for user management ──────────────────────────────────────────
-  const getRegistry   = () => loadRegistry().map(({ password: _p, ...u }) => u);
-  const hasAnyAccount = () => loadRegistry().length > 0;
-
-  // ── Role helpers ──────────────────────────────────────────────────────────
   const isAdmin    = () => user?.role === 'Admin' || user?.role === 'HR' || user?.role === 'Manager';
   const isEmployee = () => user?.role === 'Employee';
 
+  // Legacy compatibility: getRegistry returns empty array (no longer needed)
+  const getRegistry   = () => [];
+  const hasAnyAccount = () => !!user;
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, logout, register, hasPermission, getRegistry, hasAnyAccount, updateProfile, changePassword, isAdmin, isEmployee }}>
+    <AuthContext.Provider value={{
+      user, loading,
+      login, loginWithGoogle, logout, register,
+      hasPermission, getRegistry, hasAnyAccount,
+      updateProfile, changePassword,
+      isAdmin, isEmployee,
+    }}>
       {children}
     </AuthContext.Provider>
   );

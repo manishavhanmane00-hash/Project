@@ -1,18 +1,21 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Calendar, Download, CheckCircle, XCircle, Clock, Edit2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import Badge from '../../components/shared/Badge';
 import Avatar from '../../components/shared/Avatar';
 import Modal from '../../components/shared/Modal';
+import AIChatPanel from '../../components/ai/AIChatPanel';
+import { useAI } from '../../hooks/useAI';
 import toast from 'react-hot-toast';
 
-const TODAY = '2026-08-15';
+const TODAY = new Date().toISOString().split('T')[0];
 
 const AttendanceModal = ({ employee, record, onSave, onClose }) => {
   const [form, setForm] = useState(record || { status: 'present', checkIn: '09:00', checkOut: '18:00', late: false, overtime: 0 });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   return (
-    <form onSubmit={e => { e.preventDefault(); onSave({ ...form, employeeId: employee.id, name: employee.name, department: employee.department, date: TODAY }); }}>
+    <form onSubmit={e => { e.preventDefault(); onSave({ ...form, employeeId: employee._id, name: employee.name, email: employee.email || '', department: employee.department, date: TODAY }); }}>
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
         <Avatar name={employee.name} size="md" />
         <div><div style={{ fontWeight: 600 }}>{employee.name}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{employee.id} · {employee.department}</div></div>
@@ -55,16 +58,26 @@ const AttendanceModal = ({ employee, record, onSave, onClose }) => {
 
 const DailyAttendance = () => {
   const { employees, attendanceData, markAttendance, departments } = useApp();
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(TODAY);
   const [deptFilter, setDeptFilter] = useState('');
   const [editEmp, setEditEmp] = useState(null);
+
+  // AI
+  const ai = useAI(user);
+  const handleAttendanceAI = useCallback(async (message) => {
+    const chatResult = await ai.adminChat(message, { employees, attendance: attendanceData, leave: [], payroll: [], performance: [] });
+    if (!chatResult) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
+    if (!chatResult.success) return chatResult.message || 'AI Assistant is temporarily unavailable. Please try again.';
+    return chatResult.answer || 'I could not generate a response. Please try rephrasing your question.';
+  }, [ai, attendanceData, employees]);
 
   const dayAttendance = useMemo(() =>
     attendanceData.filter(a => a.date === selectedDate),
     [attendanceData, selectedDate]
   );
 
-  const getRecord = (empId) => dayAttendance.find(a => a.employeeId === empId);
+  const getRecord = (empId) => dayAttendance.find(a => a.employeeId === empId || a.employeeId === empId?.toString());
 
   const filteredEmps = employees.filter(e => !deptFilter || e.department === deptFilter);
 
@@ -75,24 +88,39 @@ const DailyAttendance = () => {
     leave: dayAttendance.filter(a => a.status === 'leave').length,
   };
 
-  const handleSave = (record) => {
+  const handleSave = async (record) => {
     const hours = record.checkIn && record.checkOut ? (() => {
       const [hi, mi] = record.checkIn.split(':').map(Number);
       const [ho, mo] = record.checkOut.split(':').map(Number);
       return Number(((ho * 60 + mo - hi * 60 - mi) / 60).toFixed(1));
     })() : 0;
-    markAttendance({ ...record, hours });
-    toast.success(`Attendance marked for ${record.name}`);
+    try {
+      await markAttendance({ ...record, hours });
+      toast.success(`Attendance marked for ${record.name}`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to save attendance');
+    }
     setEditEmp(null);
   };
 
-  const handleBulkMark = (status) => {
-    filteredEmps.forEach(emp => {
-      const record = { date: selectedDate, employeeId: emp.id, name: emp.name, department: emp.department,
-        checkIn: status === 'present' ? '09:00' : null, checkOut: status === 'present' ? '18:00' : null,
-        hours: status === 'present' ? 9 : 0, status, late: false, overtime: 0 };
-      markAttendance(record);
+  const handleBulkMark = async (status) => {
+    const promises = filteredEmps.map(emp => {
+      const record = {
+        date: selectedDate,
+        employeeId: emp._id,
+        name: emp.name,
+        email: emp.email,
+        department: emp.department,
+        checkIn: status === 'present' ? '09:00 AM' : null,
+        checkOut: status === 'present' ? '06:00 PM' : null,
+        hours: status === 'present' ? 9 : 0,
+        status,
+        late: false,
+        overtime: 0,
+      };
+      return markAttendance(record);
     });
+    await Promise.allSettled(promises);
     toast.success(`Bulk marked ${filteredEmps.length} employees as ${status}`);
   };
 
@@ -158,7 +186,7 @@ const DailyAttendance = () => {
           </thead>
           <tbody>
             {filteredEmps.map(emp => {
-              const rec = getRecord(emp.id);
+              const rec = getRecord(emp._id);
               return (
                 <tr key={emp._id}>
                   <td>
@@ -167,7 +195,7 @@ const DailyAttendance = () => {
                       <span style={{ fontWeight: 500, fontSize: '0.875rem' }}>{emp.name}</span>
                     </div>
                   </td>
-                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{emp.id}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{String(emp._id).slice(-6).toUpperCase()}</td>
                   <td style={{ fontSize: '0.875rem' }}>{emp.department}</td>
                   <td style={{ fontSize: '0.875rem' }}>{rec?.checkIn || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                   <td style={{ fontSize: '0.875rem' }}>{rec?.checkOut || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
@@ -192,6 +220,22 @@ const DailyAttendance = () => {
           <AttendanceModal employee={editEmp.emp} record={editEmp.record} onSave={handleSave} onClose={() => setEditEmp(null)} />
         </Modal>
       )}
+
+      {/* AI Attendance Analysis */}
+      <div style={{ marginTop: 24 }}>
+        <AIChatPanel
+          title="AI Attendance Analysis"
+          onSend={handleAttendanceAI}
+          loading={ai.loading}
+          suggestions={[
+            'Analyze attendance for this period',
+            'Which department has the most absences?',
+            'How is the overall attendance rate?',
+            'Show overtime trends',
+          ]}
+          placeholder="Ask about attendance patterns, absenteeism, overtime..."
+        />
+      </div>
     </div>
   );
 };

@@ -67,7 +67,7 @@ const GoalForm = ({ employees, onSave, onClose }) => {
     employeeId: '', title: '', category: 'Project', dueDate: '',
     priority: 'medium', description: '', progress: 0, status: 'in-progress',
   });
-  const emp = employees.find(e => e.id === form.employeeId);
+  const emp = employees.find(e => e._id === form.employeeId || e._id?.toString() === form.employeeId);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   return (
@@ -86,7 +86,7 @@ const GoalForm = ({ employees, onSave, onClose }) => {
           <label className="form-label">Employee <span className="required">*</span></label>
           <select className="form-control form-select" required value={form.employeeId} onChange={e => set('employeeId', e.target.value)}>
             <option value="">Select employee</option>
-            {employees.map(e => <option key={e._id} value={e.id}>{e.name}</option>)}
+            {employees.map(e => <option key={e._id} value={e._id}>{e.name}</option>)}
           </select>
         </div>
         <div className="form-group">

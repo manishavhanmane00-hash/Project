@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import {
   Download, FileText, Users, Clock, PlaneTakeoff,
-  DollarSign, Star, ChevronRight, Printer, Filter
+  DollarSign, Star, ChevronRight, Printer, Filter, Bot
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { formatINR, formatINRCompact } from '../utils/currency';
+import AIChatPanel from '../components/ai/AIChatPanel';
+import { useAI } from '../hooks/useAI';
 import toast from 'react-hot-toast';
 
 const REPORT_CATEGORIES = [
@@ -87,12 +90,46 @@ const perfByDept = [
 ];
 
 const Reports = () => {
-  const { employees, departments, leaveRequests, payrollData, attendanceData } = useApp();
+  const { employees, departments, leaveRequests, payrollData, attendanceData, performanceReviews } = useApp();
+  const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState('employee');
   const [dateFrom,   setDateFrom]   = useState('');
   const [dateTo,     setDateTo]     = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [search,     setSearch]     = useState('');
+
+  // AI Report Generator state
+  const [aiReport, setAiReport]     = useState('');
+  const [aiReportLoading, setAiReportLoading] = useState(false);
+  const ai = useAI(user);
+
+  const buildContext = useCallback(() => ({
+    employees,
+    attendance: attendanceData,
+    leave: leaveRequests,
+    payroll: payrollData,
+    performance: performanceReviews || [],
+  }), [employees, attendanceData, leaveRequests, payrollData, performanceReviews]);
+
+  const handleGenerateAIReport = useCallback(async () => {
+    setAiReportLoading(true);
+    setAiReport('');
+    const dateRange = dateFrom && dateTo ? { from: dateFrom, to: dateTo } : null;
+    const result = await ai.generateReport(activeCategory, dateRange, deptFilter || null, buildContext());
+    if (result?.success) {
+      setAiReport(result.report);
+    } else {
+      setAiReport(result?.message || 'Failed to generate report. Please try again.');
+    }
+    setAiReportLoading(false);
+  }, [ai, activeCategory, dateFrom, dateTo, deptFilter, buildContext]);
+
+  const handleReportChat = useCallback(async (message) => {
+    const result = await ai.adminChat(message, buildContext());
+    if (!result) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
+    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable. Please try again.';
+    return result.answer || 'I could not generate a response. Please try rephrasing your question.';
+  }, [ai, buildContext]);
 
   const category = REPORT_CATEGORIES.find(c => c.id === activeCategory);
   const Icon     = category?.icon;
@@ -445,6 +482,52 @@ const Reports = () => {
         <div>
           <div style={{ marginBottom: 20 }}>{renderChart()}</div>
 
+          {/* AI Report Generator */}
+          <div className="card" style={{ marginBottom: 20 }}>
+            <div className="card-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Bot size={15} color="var(--primary)" />
+                </div>
+                <h3 className="card-title">Generate AI Report</h3>
+                <span style={{ fontSize: '0.68rem', padding: '2px 8px', background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 20, fontWeight: 600, border: '1px solid var(--primary-mid)' }}>
+                  AI Powered
+                </span>
+              </div>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={handleGenerateAIReport}
+                disabled={aiReportLoading}
+                style={{ minWidth: 140 }}
+              >
+                <Bot size={13} />
+                {aiReportLoading ? 'Generating...' : 'Generate AI Report'}
+              </button>
+            </div>
+            <div className="card-body">
+              {aiReportLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[80, 65, 90, 55, 75].map((w, i) => (
+                    <div key={i} className="skeleton" style={{ height: 14, borderRadius: 4, width: `${w}%` }} />
+                  ))}
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 8, textAlign: 'center' }}>
+                    AI is generating your {category?.label?.toLowerCase()} report...
+                  </div>
+                </div>
+              ) : aiReport ? (
+                <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem', lineHeight: 1.7, color: 'var(--text-primary)', background: 'var(--bg)', borderRadius: 10, padding: 16 }}>
+                  {aiReport}
+                </div>
+              ) : (
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '8px 0' }}>
+                  Click "Generate AI Report" to create an executive summary for the selected report category.
+                  <br />
+                  <span style={{ fontSize: '0.78rem' }}>Use the date range and department filters above to scope the report.</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="card">
             <div className="card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -477,6 +560,22 @@ const Reports = () => {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* AI Reports Chat */}
+          <div style={{ marginTop: 20 }}>
+            <AIChatPanel
+              title="Ask AI about Reports"
+              onSend={handleReportChat}
+              loading={ai.loading}
+              suggestions={[
+                'What are the key HR trends this month?',
+                'Which department needs attention?',
+                'Summarize attendance and leave together',
+                'What is the total payroll this period?',
+              ]}
+              placeholder="Ask about any report data..."
+            />
           </div>
         </div>
       </div>

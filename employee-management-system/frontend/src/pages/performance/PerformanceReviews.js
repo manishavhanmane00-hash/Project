@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Plus, Star, Eye, Edit2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import Avatar from '../../components/shared/Avatar';
 import Badge from '../../components/shared/Badge';
 import Modal from '../../components/shared/Modal';
+import AIChatPanel from '../../components/ai/AIChatPanel';
+import { useAI } from '../../hooks/useAI';
 import toast from 'react-hot-toast';
 
 const RATINGS = [
@@ -25,18 +28,18 @@ const StarRating = ({ value, onChange, readonly }) => (
   </div>
 );
 
-const ReviewForm = ({ employees, onSave, onClose }) => {
-  const [form, setForm] = useState({ employeeId: '', reviewPeriod: 'Q2 2026', reviewer: 'James Wilson', overallRating: 0, goals: 0, kpis: 0, strengths: '', improvements: '', managerComments: '', employeeComments: '', status: 'completed' });
+const ReviewForm = ({ employees, onSave, onClose, currentUser, saving }) => {
+  const [form, setForm] = useState({ employeeId: '', reviewPeriod: 'Q2 2026', reviewer: currentUser?.name || '', overallRating: 0, goals: 0, kpis: 0, strengths: '', improvements: '', managerComments: '', employeeComments: '', status: 'completed' });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const emp = employees.find(e => e.id === form.employeeId);
+  const emp = employees.find(e => (e._id === form.employeeId || e.id === form.employeeId));
   return (
-    <form onSubmit={e => { e.preventDefault(); if (!form.employeeId || !form.overallRating) { toast.error('Fill required fields'); return; } onSave({ ...form, employeeName: emp?.name || form.employeeId, department: emp?.department || '', reviewDate: new Date().toISOString().split('T')[0] }); }}>
+    <form onSubmit={e => { e.preventDefault(); if (!form.employeeId || !form.overallRating) { toast.error('Select an employee and set an overall rating'); return; } onSave({ ...form, employeeName: emp?.name || form.employeeId, department: emp?.department || '', reviewDate: new Date().toISOString().split('T')[0] }); }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
         <div className="form-group">
           <label className="form-label">Employee <span className="required">*</span></label>
           <select className="form-control form-select" required value={form.employeeId} onChange={e => set('employeeId', e.target.value)}>
             <option value="">Select employee</option>
-            {employees.map(e => <option key={e._id} value={e.id}>{e.name}</option>)}
+            {employees.map(e => <option key={e._id} value={e._id}>{e.name}</option>)}
           </select>
         </div>
         <div className="form-group">
@@ -74,25 +77,50 @@ const ReviewForm = ({ employees, onSave, onClose }) => {
       ))}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
         <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-        <button type="submit" className="btn btn-primary">Save Review</button>
+        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save Review'}</button>
       </div>
     </form>
   );
 };
 
 const PerformanceReviews = () => {
-  const { performanceReviews, setPerformanceReviews, employees } = useApp();
+  const { performanceReviews, savePerformanceReview, employees } = useApp();
+  const { user } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [viewReview, setViewReview] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // AI
+  const ai = useAI(user);
+  const handlePerformanceAI = useCallback(async (message) => {
+    const result = await ai.adminChat(message, { employees, attendance: [], leave: [], payroll: [], performance: performanceReviews });
+    if (!result) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
+    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable. Please try again.';
+    return result.answer || 'I could not generate a response. Please try rephrasing your question.';
+  }, [ai, performanceReviews, employees]);
 
   const avgRating = performanceReviews.length > 0
     ? (performanceReviews.reduce((s, r) => s + r.overallRating, 0) / performanceReviews.length).toFixed(1)
     : 0;
 
-  const handleSave = (form) => {
-    setPerformanceReviews(prev => [...prev, { ...form, id: `PR-${String(prev.length + 1).padStart(3, '0')}` }]);
-    toast.success('Performance review saved');
-    setModalOpen(false);
+  const handleSave = async (form) => {
+    setSaving(true);
+    try {
+      // Find the selected employee to get their userId and email for proper linkage
+      const emp = employees.find(e => e._id === form.employeeId);
+      const reviewData = {
+        ...form,
+        userId: emp?.userId || null,
+        email: emp?.email || '',
+      };
+      await savePerformanceReview(reviewData);
+      toast.success('Performance review saved');
+      setModalOpen(false);
+    } catch (err) {
+      toast.error(err.message || 'Failed to save review');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -186,8 +214,24 @@ const PerformanceReviews = () => {
       )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New Performance Review" size="lg">
-        <ReviewForm employees={employees} onSave={handleSave} onClose={() => setModalOpen(false)} />
+        <ReviewForm employees={employees} onSave={handleSave} onClose={() => setModalOpen(false)} currentUser={user} saving={saving} />
       </Modal>
+
+      {/* AI Performance Summary */}
+      <div style={{ marginTop: 24 }}>
+        <AIChatPanel
+          title="AI Performance Summary"
+          onSend={handlePerformanceAI}
+          loading={ai.loading}
+          suggestions={[
+            'What is the average performance rating?',
+            'Which department performs best?',
+            'Who needs improvement?',
+            'Summarize performance trends',
+          ]}
+          placeholder="Ask about performance ratings, trends, department comparisons..."
+        />
+      </div>
     </div>
   );
 };

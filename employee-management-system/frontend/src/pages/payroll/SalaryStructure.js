@@ -25,17 +25,25 @@ const SalaryStructure = () => {
   const gross = Number(form.salary || 0) + Number(form.hra || 0) + Number(form.allowances || 0) + Number(form.bonus || 0);
   const net   = gross - Number(form.deductions || 0);
 
-  const handleSave = () => {
-    updateEmployee(editEmp._id, {
-      ...form,
-      salary:     Number(form.salary),
-      hra:        Number(form.hra),
-      allowances: Number(form.allowances),
-      bonus:      Number(form.bonus),
-      deductions: Number(form.deductions),
-    });
-    toast.success('Salary structure updated');
-    setEditEmp(null);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateEmployee(editEmp._id, {
+        salary:     Number(form.salary),
+        hra:        Number(form.hra),
+        allowances: Number(form.allowances),
+        bonus:      Number(form.bonus),
+        deductions: Number(form.deductions),
+      });
+      toast.success('Salary structure updated');
+      setEditEmp(null);
+    } catch (err) {
+      toast.error(err.message || 'Failed to update salary');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -107,7 +115,7 @@ const SalaryStructure = () => {
           footer={
             <>
               <button className="btn btn-outline" onClick={() => setEditEmp(null)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave}>Save Changes</button>
+              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</button>
             </>
           }
         >

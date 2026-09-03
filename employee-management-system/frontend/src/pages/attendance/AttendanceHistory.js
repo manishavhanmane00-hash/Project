@@ -12,18 +12,28 @@ const AttendanceHistory = () => {
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [dateFrom, setDateFrom] = useState('2026-08-01');
-  const [dateTo, setDateTo] = useState('2026-08-15');
+  // Default to current month's date range
+  const now = new Date();
+  const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const today = now.toISOString().split('T')[0];
+  const [dateFrom, setDateFrom] = useState(firstOfMonth);
+  const [dateTo, setDateTo] = useState(today);
   const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
     let list = [...attendanceData];
-    if (search) { const s = search.toLowerCase(); list = list.filter(a => a.name?.toLowerCase().includes(s) || a.employeeId?.toLowerCase().includes(s)); }
+    if (search) {
+      const s = search.toLowerCase();
+      list = list.filter(a =>
+        a.name?.toLowerCase().includes(s) ||
+        (a.employeeId || '').toString().toLowerCase().includes(s)
+      );
+    }
     if (deptFilter) list = list.filter(a => a.department === deptFilter);
     if (statusFilter) list = list.filter(a => a.status === statusFilter);
     if (dateFrom) list = list.filter(a => a.date >= dateFrom);
     if (dateTo) list = list.filter(a => a.date <= dateTo);
-    return list.sort((a, b) => b.date.localeCompare(a.date));
+    return list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   }, [attendanceData, search, deptFilter, statusFilter, dateFrom, dateTo]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -98,9 +108,13 @@ const AttendanceHistory = () => {
           </thead>
           <tbody>
             {paginated.map((a, i) => {
-              const emp = employees.find(e => e.id === a.employeeId);
+              const emp = employees.find(e =>
+                e._id === a.employeeId ||
+                e._id?.toString() === a.employeeId?.toString() ||
+                e.email === a.email
+              );
               return (
-                <tr key={i}>
+                <tr key={a._id || i}>
                   <td style={{ fontSize: '0.875rem', fontWeight: 500 }}>{a.date}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

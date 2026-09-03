@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -10,6 +10,7 @@ import {
   DollarSign, TrendingUp, ArrowUpRight, ArrowDownRight, Cake, Star
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/shared/Avatar';
 import Badge from '../components/shared/Badge';
 import { formatINR, formatINRCompact } from '../utils/currency';
@@ -18,6 +19,9 @@ import {
   LEAVE_STATS, DEPT_DISTRIBUTION, PAYROLL_OVERVIEW,
   RECENT_ACTIVITIES, UPCOMING_EVENTS
 } from '../data/sampleData';
+import AIInsightsPanel from '../components/ai/AIInsightsPanel';
+import AIChatPanel from '../components/ai/AIChatPanel';
+import { useAI } from '../hooks/useAI';
 
 const StatCard = ({ icon: Icon, label, value, change, changeType, color, bg }) => (
   <div className="stat-card">
@@ -52,19 +56,59 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const Dashboard = () => {
-  const { employees, leaveRequests } = useApp();
+  const { employees, leaveRequests, attendanceData, payrollData, performanceReviews } = useApp();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const pendingLeave = leaveRequests.filter(r => r.status === 'pending');
 
+  // ── AI state ──────────────────────────────────────────────────────────────
+  const ai = useAI(user);
+  const [aiInsights, setAiInsights] = useState([]);
+  const [insightsLoaded, setInsightsLoaded] = useState(false);
+
+  const buildContext = useCallback(() => ({
+    employees,
+    attendance: attendanceData,
+    leave: leaveRequests,
+    payroll: payrollData,
+    performance: performanceReviews,
+  }), [employees, attendanceData, leaveRequests, payrollData, performanceReviews]);
+
+  const loadInsights = useCallback(async () => {
+    const result = await ai.adminInsights(buildContext());
+    if (result?.success && result.insights) {
+      setAiInsights(result.insights);
+      setInsightsLoaded(true);
+    }
+  }, [ai, buildContext]);
+
+  const handleAdminChat = useCallback(async (message) => {
+    const result = await ai.adminChat(message, buildContext());
+    if (!result) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
+    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable. Please try again.';
+    return result.answer || 'I could not generate a response. Please try rephrasing your question.';
+  }, [ai, buildContext]);
+
+  const today = new Date().toISOString().split('T')[0];
+  const todayAttendance = attendanceData.filter(a => a.date === today);
+  const presentToday = todayAttendance.filter(a => a.status === 'present').length;
+  const absentToday = todayAttendance.filter(a => a.status === 'absent').length;
+  const avgAttendance = todayAttendance.length > 0
+    ? Math.round((presentToday / todayAttendance.length) * 100)
+    : 0;
+  const monthlyPayrollTotal = payrollData.reduce((s, p) =>
+    s + (p.basic||0)+(p.hra||0)+(p.allowances||0)+(p.bonus||0)-(p.tax||0)-(p.insurance||0)-(p.otherDeductions||0), 0
+  );
+
   const stats = [
-    { icon: Users,     label: 'Total Employees',      value: employees.length || DASHBOARD_STATS.totalEmployees,  change: employees.length > 0 ? null : null, changeType: 'up', color: '#4f46e5', bg: '#eef2ff' },
-    { icon: UserCheck, label: 'Active Employees',      value: employees.filter(e=>e.status==='active').length || DASHBOARD_STATS.activeEmployees, change: null, changeType: 'up', color: '#10b981', bg: '#d1fae5' },
-    { icon: Calendar,  label: 'On Leave Today',        value: employees.filter(e=>e.status==='on-leave').length || DASHBOARD_STATS.onLeave, change: null, changeType: 'down', color: '#f59e0b', bg: '#fef3c7' },
-    { icon: UserCheck, label: 'Present Today',         value: DASHBOARD_STATS.presentToday,  change: null, changeType: 'up', color: '#3b82f6', bg: '#dbeafe' },
-    { icon: UserMinus, label: 'Absent Today',          value: DASHBOARD_STATS.absentToday,   change: null, changeType: 'up', color: '#ef4444', bg: '#fee2e2' },
-    { icon: AlertCircle,label: 'Pending Leave',        value: pendingLeave.length,            change: null, changeType: 'down', color: '#8b5cf6', bg: '#ede9fe' },
-    { icon: DollarSign, label: 'Monthly Payroll (₹)',  value: DASHBOARD_STATS.monthlyPayroll, change: null, changeType: 'up', color: '#14b8a6', bg: '#ccfbf1' },
-    { icon: TrendingUp, label: 'Avg Attendance',       value: `${DASHBOARD_STATS.avgAttendance}%`, change: null, changeType: 'up', color: '#f97316', bg: '#ffedd5' },
+    { icon: Users,     label: 'Total Employees',      value: employees.length,                                                       change: null, changeType: 'up',   color: '#4f46e5', bg: '#eef2ff' },
+    { icon: UserCheck, label: 'Active Employees',      value: employees.filter(e=>e.status==='active').length,                        change: null, changeType: 'up',   color: '#10b981', bg: '#d1fae5' },
+    { icon: Calendar,  label: 'On Leave Today',        value: employees.filter(e=>e.status==='on-leave').length,                      change: null, changeType: 'down', color: '#f59e0b', bg: '#fef3c7' },
+    { icon: UserCheck, label: 'Present Today',         value: presentToday,                                                           change: null, changeType: 'up',   color: '#3b82f6', bg: '#dbeafe' },
+    { icon: UserMinus, label: 'Absent Today',          value: absentToday,                                                            change: null, changeType: 'up',   color: '#ef4444', bg: '#fee2e2' },
+    { icon: AlertCircle,label: 'Pending Leave',        value: pendingLeave.length,                                                    change: null, changeType: 'down', color: '#8b5cf6', bg: '#ede9fe' },
+    { icon: DollarSign, label: 'Monthly Payroll (₹)',  value: monthlyPayrollTotal,                                                    change: null, changeType: 'up',   color: '#14b8a6', bg: '#ccfbf1' },
+    { icon: TrendingUp, label: 'Avg Attendance',       value: `${avgAttendance}%`,                                                    change: null, changeType: 'up',   color: '#f97316', bg: '#ffedd5' },
   ];
 
   return (
@@ -74,11 +118,11 @@ const Dashboard = () => {
         <div className="page-header-top">
           <div>
             <h1 className="page-title">Dashboard</h1>
-            <p className="page-subtitle">Welcome back, James Wilson — here's what's happening today.</p>
+            <p className="page-subtitle">Welcome back, {user?.name || 'Admin'} — here's what's happening today.</p>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-outline btn-sm">
-              <Clock size={14} /> Today: Aug 15, 2026
+              <Clock size={14} /> Today: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
             </button>
             <button className="btn btn-primary btn-sm" onClick={() => navigate('/employees/add')}>
               + Add Employee
@@ -91,6 +135,27 @@ const Dashboard = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 24 }}>
         {stats.map(s => <StatCard key={s.label} {...s} />)}
       </div>
+
+      {/* AI Insights + Ask AI */}
+      <AIInsightsPanel
+        insights={aiInsights}
+        loading={ai.loading && !insightsLoaded}
+        error={ai.error}
+        onRefresh={loadInsights}
+        title="🤖 AI HR Insights"
+      />
+      <AIChatPanel
+        title="Ask AI — HR Assistant"
+        onSend={handleAdminChat}
+        loading={ai.loading}
+        suggestions={[
+          'How many employees are currently active?',
+          'Which department has the highest absenteeism?',
+          'How many leave requests are pending?',
+          'Give me a summary of this month\'s attendance.',
+        ]}
+        placeholder="Ask about employees, attendance, leave, payroll..."
+      />
 
       {/* Charts Row 1 */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 24 }}>

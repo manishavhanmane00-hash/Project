@@ -114,7 +114,12 @@ const Payslips = () => {
     return p.employeeName?.toLowerCase().includes(s) || p.department?.toLowerCase().includes(s);
   });
 
-  const getEmp = (id) => employees.find(e => e.id === id) || { name: id, id, department: '', designation: '' };
+  const getEmp = (employeeId) =>
+    employees.find(e =>
+      e._id === employeeId ||
+      e._id?.toString() === employeeId?.toString() ||
+      e.email === employeeId
+    ) || { name: employeeId, _id: employeeId, department: '', designation: '' };
 
   const handlePrint = () => {
     window.print();
@@ -155,7 +160,7 @@ const Payslips = () => {
                 const deductions = (p.tax   || 0) + (p.insurance || 0) + (p.otherDeductions || 0);
                 const net        = gross - deductions;
                 return (
-                  <tr key={p.id}>
+                  <tr key={p._id || p.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <Avatar name={p.employeeName} size="sm" />

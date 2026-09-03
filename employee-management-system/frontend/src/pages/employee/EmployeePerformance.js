@@ -197,7 +197,7 @@ const EmployeePerformance = () => {
       ) : (
         <div style={{ display: 'grid', gap: 16 }}>
           {myReviews.map(rev => (
-            <div key={rev.id} className="card" style={{ padding: 24 }}>
+            <div key={rev._id || rev.id} className="card" style={{ padding: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                 <div>
                   <h3 style={{ fontWeight: 700, marginBottom: 4 }}>{rev.reviewPeriod}</h3>

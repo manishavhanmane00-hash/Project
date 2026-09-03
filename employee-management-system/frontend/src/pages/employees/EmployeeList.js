@@ -54,11 +54,15 @@ const EmployeeList = () => {
 
   const handleDelete = async () => {
     setDeleting(true);
-    await new Promise(r => setTimeout(r, 500));
-    deleteEmployee(confirmDelete._id);
-    toast.success(`${confirmDelete.name} removed successfully`);
-    setDeleting(false);
-    setConfirmDelete(null);
+    try {
+      await deleteEmployee(confirmDelete._id);
+      toast.success(`${confirmDelete.name} removed successfully`);
+      setConfirmDelete(null);
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete employee');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleExport = () => {

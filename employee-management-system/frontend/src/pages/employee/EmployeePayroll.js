@@ -227,7 +227,7 @@ const EmployeePayroll = () => {
                 const d = (p.tax||0)+(p.insurance||0)+(p.otherDeductions||0);
                 const n = g - d;
                 return (
-                  <tr key={p.id}>
+                  <tr key={p._id || p.id}>
                     <td style={{ fontWeight: 600 }}>{p.month} {p.year}</td>
                     <td>{formatINR(g)}</td>
                     <td style={{ color: 'var(--danger)' }}>−{formatINR(d)}</td>
@@ -266,11 +266,11 @@ const EmployeePayroll = () => {
               <select
                 className="form-control form-select"
                 style={{ maxWidth: 240 }}
-                value={selectedPayslip?.id || (latestPayroll?.id || '')}
-                onChange={e => setSelectedPayslip(myPayroll.find(p => p.id === e.target.value))}
+                value={selectedPayslip ? (selectedPayslip._id || selectedPayslip.id) : (latestPayroll ? (latestPayroll._id || latestPayroll.id) : '')}
+                onChange={e => setSelectedPayslip(myPayroll.find(p => (p._id || p.id) === e.target.value) || null)}
               >
                 {myPayroll.map(p => (
-                  <option key={p.id} value={p.id}>{p.month} {p.year}</option>
+                  <option key={p._id || p.id} value={p._id || p.id}>{p.month} {p.year}</option>
                 ))}
               </select>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>

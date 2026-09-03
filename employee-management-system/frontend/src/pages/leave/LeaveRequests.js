@@ -21,27 +21,41 @@ const LeaveRequests = () => {
 
   const filtered = useMemo(() => {
     let list = [...leaveRequests];
-    if (search) { const s = search.toLowerCase(); list = list.filter(r => r.employeeName.toLowerCase().includes(s) || r.id.toLowerCase().includes(s)); }
+    if (search) {
+      const s = search.toLowerCase();
+      list = list.filter(r =>
+        r.employeeName?.toLowerCase().includes(s) ||
+        (r._id || r.id || '').toString().toLowerCase().includes(s)
+      );
+    }
     if (statusFilter) list = list.filter(r => r.status === statusFilter);
     if (typeFilter) list = list.filter(r => r.leaveType === typeFilter);
-    return list.sort((a, b) => b.appliedDate.localeCompare(a.appliedDate));
+    return list.sort((a, b) => (b.appliedDate || '').localeCompare(a.appliedDate || ''));
   }, [leaveRequests, search, statusFilter, typeFilter]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const handleApprove = (id, name) => {
-    updateLeaveStatus(id, 'approved');
-    toast.success(`Leave approved for ${name}`);
-    setViewReq(null);
+  const handleApprove = async (id, name) => {
+    try {
+      await updateLeaveStatus(id, 'approved');
+      toast.success(`Leave approved for ${name}`);
+      setViewReq(null);
+    } catch (err) {
+      toast.error(err.message || 'Failed to approve leave');
+    }
   };
 
-  const handleReject = () => {
-    updateLeaveStatus(rejectModal.id, 'rejected', rejectReason);
-    toast.error(`Leave rejected for ${rejectModal.employeeName}`);
-    setRejectModal(null);
-    setRejectReason('');
-    setViewReq(null);
+  const handleReject = async () => {
+    try {
+      await updateLeaveStatus(rejectModal._id || rejectModal.id, 'rejected', rejectReason);
+      toast.success(`Leave rejected for ${rejectModal.employeeName}`);
+      setRejectModal(null);
+      setRejectReason('');
+      setViewReq(null);
+    } catch (err) {
+      toast.error(err.message || 'Failed to reject leave');
+    }
   };
 
   const leaveTypes = [...new Set(leaveRequests.map(r => r.leaveType))];
@@ -102,8 +116,8 @@ const LeaveRequests = () => {
           </thead>
           <tbody>
             {paginated.map(req => (
-              <tr key={req.id}>
-                <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{req.id}</td>
+              <tr key={req._id || req.id}>
+                <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{(req._id || req.id || '').toString().slice(-8).toUpperCase()}</td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <Avatar name={req.employeeName} size="sm" />
@@ -124,7 +138,7 @@ const LeaveRequests = () => {
                     <button className="btn-icon primary" onClick={() => setViewReq(req)} title="View Details"><Eye size={13} /></button>
                     {req.status === 'pending' && (
                       <>
-                        <button className="btn-icon" style={{ color: 'var(--success)', borderColor: 'var(--success-light)' }} onClick={() => handleApprove(req.id, req.employeeName)} title="Approve">
+                        <button className="btn-icon" style={{ color: 'var(--success)', borderColor: 'var(--success-light)' }} onClick={() => handleApprove(req._id || req.id, req.employeeName)} title="Approve">
                           <CheckCircle size={13} />
                         </button>
                         <button className="btn-icon danger" onClick={() => setRejectModal(req)} title="Reject"><XCircle size={13} /></button>
@@ -151,7 +165,7 @@ const LeaveRequests = () => {
               {viewReq.status === 'pending' && (
                 <>
                   <button className="btn btn-danger" onClick={() => { setRejectModal(viewReq); setViewReq(null); }}>Reject</button>
-                  <button className="btn btn-success" onClick={() => handleApprove(viewReq.id, viewReq.employeeName)}>Approve</button>
+                  <button className="btn btn-success" onClick={() => handleApprove(viewReq._id || viewReq.id, viewReq.employeeName)}>Approve</button>
                 </>
               )}
             </>
@@ -167,7 +181,7 @@ const LeaveRequests = () => {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {[
-              ['Request ID', viewReq.id], ['Leave Type', viewReq.leaveType],
+              ['Request ID', (viewReq._id || viewReq.id || '').toString().slice(-8).toUpperCase()], ['Leave Type', viewReq.leaveType],
               ['Start Date', viewReq.startDate], ['End Date', viewReq.endDate],
               ['Number of Days', viewReq.days], ['Applied Date', viewReq.appliedDate],
             ].map(([k, v]) => (

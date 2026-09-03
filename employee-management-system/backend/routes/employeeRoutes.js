@@ -7,9 +7,19 @@ const {
   updateEmployee,
   deleteEmployee,
 } = require('../controllers/employeeController');
+const { protect, adminOnly } = require('../middleware/auth');
 
-router.route('/').get(getEmployees).post(createEmployee);
+// All employee routes require authentication
+router.use(protect);
 
-router.route('/:id').get(getEmployeeById).put(updateEmployee).delete(deleteEmployee);
+// Admin/HR/Manager can list and create employees; protected read for all authenticated
+router.route('/')
+  .get(getEmployees)
+  .post(adminOnly, createEmployee);
+
+router.route('/:id')
+  .get(getEmployeeById)
+  .put(adminOnly, updateEmployee)
+  .delete(adminOnly, deleteEmployee);
 
 module.exports = router;

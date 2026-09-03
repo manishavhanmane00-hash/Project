@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Plus, Calendar, Eye } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import Badge from '../../components/shared/Badge';
 import Modal from '../../components/shared/Modal';
+import AIChatPanel from '../../components/ai/AIChatPanel';
+import { useAI } from '../../hooks/useAI';
 import { LEAVE_TYPES } from '../../data/sampleData';
 import toast from 'react-hot-toast';
 
@@ -19,10 +21,26 @@ const ProgressBar = ({ used, total, color = 'var(--primary)' }) => {
 };
 
 const EmployeeLeave = () => {
-  const { leaveRequests, addLeaveRequest, addNotification } = useApp();
+  const { leaveRequests, addLeaveRequest } = useApp();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [viewRequest, setViewRequest] = useState(null);
+
+  // AI Policy Assistant
+  const ai = useAI(user);
+  const handleLeaveAI = useCallback(async (message) => {
+    const myLeave = leaveRequests.filter(r => r.employeeId === user?.id || r.email === user?.email);
+    const result = await ai.employeeChat(message, {
+      myAttendance: [],
+      myLeave,
+      myPayroll: [],
+      myPerformance: [],
+      userProfile: { department: user?.department },
+    });
+    if (!result) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
+    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable. Please try again.';
+    return result.answer || 'I could not generate a response. Please try rephrasing your question.';
+  }, [ai, leaveRequests, user]);
 
   const myRequests = useMemo(() =>
     leaveRequests.filter(r => r.employeeId === user?.id || r.email === user?.email)
@@ -74,24 +92,27 @@ const EmployeeLeave = () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setSubmitting(true);
-    await new Promise(r => setTimeout(r, 600));
-    addLeaveRequest({
-      employeeId: user?.id,
-      email: user?.email,
-      employeeName: user?.name,
-      department: user?.department,
-      leaveType: form.leaveType,
-      startDate: form.startDate,
-      endDate: form.endDate,
-      days,
-      reason: form.reason,
-    });
-    addNotification({ type: 'leave', message: `Your ${form.leaveType} request for ${days} day(s) has been submitted` });
-    toast.success('Leave request submitted successfully');
-    setForm({ leaveType: '', startDate: '', endDate: '', reason: '' });
-    setErrors({});
-    setSubmitting(false);
-    setActiveTab(2);
+    try {
+      await addLeaveRequest({
+        employeeId: user?.id,
+        email: user?.email,
+        employeeName: user?.name,
+        department: user?.department,
+        leaveType: form.leaveType,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        days,
+        reason: form.reason,
+      });
+      toast.success('Leave request submitted successfully');
+      setForm({ leaveType: '', startDate: '', endDate: '', reason: '' });
+      setErrors({});
+      setActiveTab(2);
+    } catch (err) {
+      toast.error(err.message || 'Failed to submit leave request. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const balanceColors = {
@@ -292,8 +313,10 @@ const EmployeeLeave = () => {
             </thead>
             <tbody>
               {myRequests.map(r => (
-                <tr key={r.id}>
-                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--primary)' }}>{r.id}</td>
+                <tr key={r._id || r.id}>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--primary)' }}>
+                    {String(r._id || r.id || '').slice(-8).toUpperCase()}
+                  </td>
                   <td style={{ fontSize: '0.875rem' }}>{r.leaveType}</td>
                   <td style={{ fontSize: '0.875rem' }}>{r.startDate}</td>
                   <td style={{ fontSize: '0.875rem' }}>{r.endDate}</td>
@@ -317,7 +340,7 @@ const EmployeeLeave = () => {
         <Modal open={true} onClose={() => setViewRequest(null)} title="Leave Request Details" size="md">
           <div style={{ display: 'grid', gap: 12 }}>
             {[
-              ['Request ID',   viewRequest.id],
+              ['Request ID',   String(viewRequest._id || viewRequest.id || '').slice(-8).toUpperCase()],
               ['Leave Type',   viewRequest.leaveType],
               ['From',         viewRequest.startDate],
               ['To',           viewRequest.endDate],
@@ -381,6 +404,20 @@ const EmployeeLeave = () => {
           {activeTab === 2 && renderRequests()}
         </div>
       </div>
+
+      {/* AI Policy & Leave Assistant */}
+      <AIChatPanel
+        title="AI Leave & Policy Assistant"
+        onSend={handleLeaveAI}
+        loading={ai.loading}
+        suggestions={[
+          'How many leaves do I have remaining?',
+          'What is the company leave policy?',
+          'How do I apply for sick leave?',
+          'Why might my leave request be pending?',
+        ]}
+        placeholder="Ask about your leave balance, policies, or how to apply..."
+      />
     </div>
   );
 };

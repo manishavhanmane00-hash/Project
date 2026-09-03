@@ -83,7 +83,9 @@ const SectionContent = ({ section, user, registry }) => {
 
   const handleSave = async () => {
     setSaving(true);
-    await new Promise(r => setTimeout(r, 500));
+    // Settings like company profile, attendance rules, and payroll config
+    // are stored locally for now (no dedicated backend collection).
+    // Profile-specific settings that map to User fields are handled by updateProfile.
     toast.success('Settings saved');
     setSaving(false);
   };
@@ -95,6 +97,15 @@ const SectionContent = ({ section, user, registry }) => {
       toast.success(`Account created for ${inviteForm.name}`);
       setInviteOpen(false);
       setInviteForm({ name: '', email: '', password: '', role: 'Employee', department: '' });
+      // Refresh users list
+      import('../services/api').then(({ authAPI }) => {
+        authAPI.getUsers().then(r => {
+          if (r.data?.success) {
+            // Bubble up to parent Settings component — use a ref trick
+            window.__refreshUsers?.();
+          }
+        }).catch(() => {});
+      });
     } else {
       toast.error(res.error);
     }
@@ -220,7 +231,7 @@ const SectionContent = ({ section, user, registry }) => {
                 <thead><tr><th>User</th><th>Role</th><th>Department</th><th>Status</th></tr></thead>
                 <tbody>
                   {registry.map(u => (
-                    <tr key={u.id}>
+                    <tr key={u._id || u.id}>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <Avatar name={u.name} size="sm" />
@@ -442,10 +453,24 @@ const SectionContent = ({ section, user, registry }) => {
 
 /* ── Settings Page ─────────────────────────────────────────────────────── */
 const Settings = ({ initialSection }) => {
-  const { user, getRegistry } = useAuth();
+  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState(initialSection || 'company');
+  const [registry, setRegistry] = useState([]);
 
-  const registry = getRegistry ? getRegistry() : [];
+  // Load real users from backend when users tab is opened
+  React.useEffect(() => {
+    if (activeSection !== 'users') return;
+    const load = () => {
+      import('../services/api').then(({ authAPI }) => {
+        authAPI.getUsers().then(res => {
+          if (res.data?.success) setRegistry(res.data.data);
+        }).catch(() => {});
+      });
+    };
+    load();
+    window.__refreshUsers = load;
+    return () => { delete window.__refreshUsers; };
+  }, [activeSection]);
   const section  = SETTINGS_SECTIONS.find(s => s.id === activeSection);
   const Icon     = section?.icon;
 

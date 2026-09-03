@@ -1,7 +1,26 @@
 const Employee = require('../models/Employee');
+const User = require('../models/User');
 
-// @desc    Get all employees
-// @route   GET /api/employees
+// Normalize incoming employee data — merge firstName/lastName into name, sync designation/position
+const normalizeEmployeeData = (body) => {
+  const data = { ...body };
+
+  // Build name from parts if not provided directly
+  if (!data.name && (data.firstName || data.lastName)) {
+    data.name = `${data.firstName || ''} ${data.lastName || ''}`.trim();
+  }
+
+  // Sync designation / position aliases
+  if (!data.designation && data.position) data.designation = data.position;
+  if (!data.position && data.designation) data.position = data.designation;
+
+  // joiningDate: accept both field names
+  if (!data.joiningDate && data.dateOfJoining) data.joiningDate = String(data.dateOfJoining).split('T')[0];
+
+  return data;
+};
+
+// GET /api/employees
 const getEmployees = async (req, res) => {
   try {
     const employees = await Employee.find().sort({ createdAt: -1 });
@@ -11,8 +30,7 @@ const getEmployees = async (req, res) => {
   }
 };
 
-// @desc    Get a single employee by id
-// @route   GET /api/employees/:id
+// GET /api/employees/:id
 const getEmployeeById = async (req, res) => {
   try {
     const employee = await Employee.findById(req.params.id);
@@ -25,14 +43,19 @@ const getEmployeeById = async (req, res) => {
   }
 };
 
-// @desc    Create a new employee
-// @route   POST /api/employees
+// POST /api/employees  (admin creates an employee record)
 const createEmployee = async (req, res) => {
   try {
-    const employee = await Employee.create(req.body);
+    const data = normalizeEmployeeData(req.body);
+
+    // require email + name + department
+    if (!data.email) return res.status(400).json({ success: false, message: 'Email is required' });
+    if (!data.name) return res.status(400).json({ success: false, message: 'Employee name is required' });
+    if (!data.department) return res.status(400).json({ success: false, message: 'Department is required' });
+
+    const employee = await Employee.create(data);
     res.status(201).json({ success: true, data: employee });
   } catch (error) {
-    // Handle duplicate email error nicely
     if (error.code === 11000) {
       return res.status(400).json({ success: false, message: 'An employee with this email already exists' });
     }
@@ -40,25 +63,28 @@ const createEmployee = async (req, res) => {
   }
 };
 
-// @desc    Update an existing employee
-// @route   PUT /api/employees/:id
+// PUT /api/employees/:id
 const updateEmployee = async (req, res) => {
   try {
-    const employee = await Employee.findByIdAndUpdate(req.params.id, req.body, {
-      new: true, // return the updated document
-      runValidators: true, // enforce schema rules on update
+    const data = normalizeEmployeeData(req.body);
+
+    const employee = await Employee.findByIdAndUpdate(req.params.id, data, {
+      new: true,
+      runValidators: true,
     });
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
     res.status(200).json({ success: true, data: employee });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: 'An employee with this email already exists' });
+    }
     res.status(400).json({ success: false, message: error.message });
   }
 };
 
-// @desc    Delete an employee
-// @route   DELETE /api/employees/:id
+// DELETE /api/employees/:id
 const deleteEmployee = async (req, res) => {
   try {
     const employee = await Employee.findByIdAndDelete(req.params.id);

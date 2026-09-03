@@ -42,24 +42,30 @@ const GeneratePayroll = () => {
   const handleGenerate = async () => {
     if (selected.length === 0) { toast.error('Select at least one employee'); return; }
     setProcessing(true);
-    await new Promise(r => setTimeout(r, 800));
-    const emps = employees.filter(e => selected.includes(e._id));
-    emps.forEach(emp => {
-      const calc = calcPayroll(emp);
-      const paymentMonth = String(MONTHS.indexOf(month) + 1).padStart(2, '0');
-      generatePayroll({
-        employeeId:   emp.id,
-        employeeName: emp.name,
-        department:   emp.department,
-        month,
-        year: Number(year),
-        ...calc,
-        paymentDate: `${year}-${paymentMonth}-28`,
+    try {
+      const emps = employees.filter(e => selected.includes(e._id));
+      const payrollItems = emps.map(emp => {
+        const calc = calcPayroll(emp);
+        const paymentMonth = String(MONTHS.indexOf(month) + 1).padStart(2, '0');
+        return {
+          employeeId:   emp._id,        // MongoDB _id — backend uses this to find User
+          employeeName: emp.name,
+          email:        emp.email || '',
+          department:   emp.department,
+          month,
+          year: Number(year),
+          ...calc,
+          paymentDate: `${year}-${paymentMonth}-28`,
+        };
       });
-    });
-    toast.success(`Payroll generated for ${emps.length} employee${emps.length > 1 ? 's' : ''}`);
-    setSelected([]);
-    setProcessing(false);
+      await generatePayroll(payrollItems);
+      toast.success(`Payroll generated for ${emps.length} employee${emps.length > 1 ? 's' : ''}`);
+      setSelected([]);
+    } catch (err) {
+      toast.error(err.message || 'Failed to generate payroll. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -131,7 +137,7 @@ const GeneratePayroll = () => {
               {filteredEmps.map(emp => {
                 const calc     = calcPayroll(emp);
                 const existing = payrollData.find(
-                  p => p.employeeId === emp.id && p.month === month && p.year === Number(year)
+                  p => (p.employeeId === emp._id || p.employeeId === emp._id?.toString()) && p.month === month && p.year === Number(year)
                 );
                 return (
                   <tr key={emp._id} style={{ background: selected.includes(emp._id) ? 'var(--primary-light)' : '' }}>

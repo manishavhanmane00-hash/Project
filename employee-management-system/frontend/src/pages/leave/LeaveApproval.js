@@ -1,29 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { CheckCircle, XCircle, User } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import Avatar from '../../components/shared/Avatar';
 import Badge from '../../components/shared/Badge';
 import Modal from '../../components/shared/Modal';
+import AIChatPanel from '../../components/ai/AIChatPanel';
+import { useAI } from '../../hooks/useAI';
 import toast from 'react-hot-toast';
 
 const LeaveApproval = () => {
   const { leaveRequests, updateLeaveStatus, leaveBalances } = useApp();
+  const { user } = useAuth();
   const [viewReq, setViewReq] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [action, setAction] = useState(null);
 
+  // AI
+  const ai = useAI(user);
+  const handleLeaveAI = useCallback(async (message) => {
+    const result = await ai.adminChat(message, { employees: [], attendance: [], leave: leaveRequests, payroll: [], performance: [] });
+    if (!result) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
+    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable. Please try again.';
+    return result.answer || 'I could not generate a response. Please try rephrasing your question.';
+  }, [ai, leaveRequests]);
+
   const pending = leaveRequests.filter(r => r.status === 'pending');
 
-  const handleApprove = (req) => {
-    updateLeaveStatus(req.id, 'approved');
-    toast.success(`Leave approved for ${req.employeeName}`);
+  const handleApprove = async (req) => {
+    try {
+      await updateLeaveStatus(req._id || req.id, 'approved');
+      toast.success(`Leave approved for ${req.employeeName}`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to approve leave');
+    }
     setViewReq(null);
     setAction(null);
   };
 
-  const handleReject = (req) => {
-    updateLeaveStatus(req.id, 'rejected', rejectReason);
-    toast.error(`Leave rejected`);
+  const handleReject = async (req) => {
+    try {
+      await updateLeaveStatus(req._id || req.id, 'rejected', rejectReason);
+      toast.success('Leave rejected');
+    } catch (err) {
+      toast.error(err.message || 'Failed to reject leave');
+    }
     setViewReq(null);
     setAction(null);
     setRejectReason('');
@@ -59,7 +80,7 @@ const LeaveApproval = () => {
           {pending.map(req => {
             const bal = getBalance(req.employeeId, req.leaveType);
             return (
-              <div key={req.id} className="card" style={{ padding: 24 }}>
+              <div key={req._id || req.id} className="card" style={{ padding: 24 }}>
                 <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
                   <Avatar name={req.employeeName} size="lg" />
                   <div style={{ flex: 1 }}>
@@ -127,6 +148,22 @@ const LeaveApproval = () => {
           </div>
         </Modal>
       )}
+
+      {/* AI Leave Summary */}
+      <div style={{ marginTop: 24 }}>
+        <AIChatPanel
+          title="AI Leave Summary"
+          onSend={handleLeaveAI}
+          loading={ai.loading}
+          suggestions={[
+            'Summarize all leave requests this month',
+            'Which department uses the most leave?',
+            'How many leave requests are pending?',
+            'What are the most common leave types?',
+          ]}
+          placeholder="Ask about leave trends, patterns, department usage..."
+        />
+      </div>
     </div>
   );
 };
