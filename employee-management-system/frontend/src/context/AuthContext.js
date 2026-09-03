@@ -41,6 +41,8 @@ export const AuthProvider = ({ children }) => {
     setUser(userInfo);
     localStorage.setItem('ems-user', JSON.stringify(userInfo));
     if (token) localStorage.setItem('ems-token', token);
+    // Mark that at least one account has been created — survives logout
+    localStorage.setItem('ems-has-accounts', 'true');
   };
 
   // ── Login ──────────────────────────────────────────────────────────────────
@@ -69,7 +71,7 @@ export const AuthProvider = ({ children }) => {
       if (res.data.success) {
         persistUser(res.data.user, res.data.token);
         setLoading(false);
-        return { success: true, isFirstUser: res.data.isFirstUser };
+        return { success: true, isFirstUser: res.data.isFirstUser, role: res.data.user.role };
       }
       setLoading(false);
       return { success: false, error: res.data.message };
@@ -116,7 +118,11 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     localStorage.removeItem('ems-user');
     localStorage.removeItem('ems-token');
+    // Clear any cached role/session data
+    sessionStorage.clear();
     if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
+    // Note: 'ems-has-accounts' is intentionally kept so the login page
+    // knows accounts exist and doesn't show the "No accounts yet" banner.
   };
 
   // ── Update profile (calls backend) ────────────────────────────────────────
@@ -161,7 +167,9 @@ export const AuthProvider = ({ children }) => {
 
   // Legacy compatibility: getRegistry returns empty array (no longer needed)
   const getRegistry   = () => [];
-  const hasAnyAccount = () => !!user;
+  // hasAnyAccount: true if someone is currently logged in OR if any account
+  // was ever created in this browser (persisted flag survives logout).
+  const hasAnyAccount = () => !!user || localStorage.getItem('ems-has-accounts') === 'true';
 
   return (
     <AuthContext.Provider value={{

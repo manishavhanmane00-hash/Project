@@ -42,7 +42,12 @@ const Register = () => {
 
     if (res.success) {
       toast.success(res.isFirstUser ? 'Admin account created! Welcome.' : 'Account created successfully.');
-      navigate('/dashboard');
+      // Use the actual role assigned by the backend for routing
+      if (res.role === 'Employee') {
+        navigate('/employee/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } else {
       setErrors({ email: res.error });
     }
