@@ -33,10 +33,11 @@ export const employeeAPI = {
 
 // ── Attendance ────────────────────────────────────────────────────────────────
 export const attendanceAPI = {
-  getAll:   (params)   => api.get('/attendance', { params }),
-  mark:     (data)     => api.post('/attendance', data),
-  checkIn:  ()         => api.post('/attendance/check-in'),
-  checkOut: ()         => api.put('/attendance/check-out'),
+  getAll:    (params) => api.get('/attendance', { params }),
+  mark:      (data)   => api.post('/attendance', data),
+  selfMark:  (data)   => api.post('/attendance/self', data),   // employee self-service
+  checkIn:   ()       => api.post('/attendance/check-in'),
+  checkOut:  ()       => api.put('/attendance/check-out'),
 };
 
 // ── Leave ─────────────────────────────────────────────────────────────────────

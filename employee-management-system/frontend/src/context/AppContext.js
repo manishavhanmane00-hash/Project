@@ -130,6 +130,25 @@ export const AppProvider = ({ children }) => {
     } catch { }
   };
 
+  // Employee self-service: create or update own attendance record
+  const selfMarkAttendance = async (record) => {
+    const { data } = await attendanceAPI.selfMark(record);
+    if (data.success) {
+      setAttendanceData(prev => {
+        const idx = prev.findIndex(a =>
+          a.date === data.data.date &&
+          (a.userId === data.data.userId ||
+           a.email  === data.data.email  ||
+           a._id?.toString() === data.data._id?.toString())
+        );
+        if (idx >= 0) { const u = [...prev]; u[idx] = data.data; return u; }
+        return [data.data, ...prev];
+      });
+      return data.data;
+    }
+    throw new Error(data.message || 'Failed to save attendance');
+  };
+
   const doCheckIn = async () => {
     const { data } = await attendanceAPI.checkIn();
     if (data.success) {
@@ -230,7 +249,7 @@ export const AppProvider = ({ children }) => {
     employees,    addEmployee,    updateEmployee,    deleteEmployee,
     departments,  addDepartment,  updateDepartment,  deleteDepartment,
     designations, setDesignations,
-    attendanceData, markAttendance, doCheckIn, doCheckOut,
+    attendanceData, markAttendance, selfMarkAttendance, doCheckIn, doCheckOut,
     leaveRequests,  addLeaveRequest, updateLeaveStatus,
     leaveBalances,  setLeaveBalances,
     payrollData,    generatePayroll, approvePayroll,
