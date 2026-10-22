@@ -9,6 +9,9 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const MenuItem = require('../models/MenuItem');
+const Table = require('../models/Table');
+const InventoryItem = require('../models/InventoryItem');
+const InventoryMovement = require('../models/InventoryMovement');
 const connectDB = require('./db');
 
 const menuData = [
@@ -109,9 +112,33 @@ const seedDB = async () => {
     }
 
     // --- Seed Menu Items ---
-    await MenuItem.deleteMany({}); // Clear existing menu
+    await MenuItem.deleteMany({});
     await MenuItem.insertMany(menuData);
     console.log(`✅ Menu seeded with ${menuData.length} categories`);
+
+    // --- Seed tables ---
+    await Table.deleteMany({});
+    const tables = [
+      { tableNumber: 1, name: 'Window Table', capacity: 2, location: 'Indoor', status: 'available' },
+      { tableNumber: 2, name: 'Couple Corner', capacity: 2, location: 'Indoor', status: 'available' },
+      { tableNumber: 3, name: 'Family Table', capacity: 4, location: 'Indoor', status: 'available' },
+      { tableNumber: 4, name: 'Patio Seat', capacity: 3, location: 'Outdoor', status: 'available' },
+    ];
+    await Table.insertMany(tables);
+    console.log(`✅ Seeded ${tables.length} tables`);
+
+    // --- Seed inventory ---
+    await InventoryMovement.deleteMany({});
+    await InventoryItem.deleteMany({});
+    const inventory = [
+      { name: 'Coffee Beans', category: 'Beverages', unit: 'kg', currentStock: 8, minStock: 3, costPerUnit: 420 },
+      { name: 'Milk', category: 'Dairy', unit: 'litres', currentStock: 15, minStock: 5, costPerUnit: 52 },
+      { name: 'Tea Leaves', category: 'Beverages', unit: 'kg', currentStock: 4, minStock: 2, costPerUnit: 260 },
+      { name: 'Bread', category: 'Bakery', unit: 'packs', currentStock: 12, minStock: 5, costPerUnit: 80 },
+      { name: 'Tomato Sauce', category: 'Sauces', unit: 'litres', currentStock: 6, minStock: 2, costPerUnit: 110 },
+    ];
+    await InventoryItem.insertMany(inventory);
+    console.log(`✅ Seeded ${inventory.length} inventory items`);
 
     console.log('\n🎉 Database seeded successfully!');
     console.log('📧 Admin Email:', process.env.ADMIN_EMAIL || 'admin@cafe.com');
