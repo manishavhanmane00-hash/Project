@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/shared/Avatar';
 import Modal from '../components/shared/Modal';
+import RolePermissionsManager from '../components/settings/RolePermissionsManager';
 import toast from 'react-hot-toast';
 
 const SETTINGS_SECTIONS = [
@@ -20,13 +21,6 @@ const SETTINGS_SECTIONS = [
   { id: 'attendance',    label: 'Attendance Settings', icon: Clock         },
   { id: 'general',       label: 'General Settings',    icon: SettingsIcon  },
 ];
-
-const PERMISSIONS = {
-  Admin:    { employees: true,  attendance: true,  leave: true,  payroll: true,  performance: true,  reports: true,  settings: true,  departments: true  },
-  HR:       { employees: true,  attendance: true,  leave: true,  payroll: true,  performance: false, reports: true,  settings: false, departments: true  },
-  Manager:  { employees: false, attendance: true,  leave: true,  payroll: false, performance: true,  reports: true,  settings: false, departments: false },
-  Employee: { employees: false, attendance: false, leave: true,  payroll: false, performance: false, reports: false, settings: false, departments: false },
-};
 
 /* ── Reusable field component ──────────────────────────────────────────── */
 const Field = ({ label, defaultValue, type = 'text', hint, value, onChange }) => (
@@ -62,7 +56,6 @@ const Toggle = ({ label, desc, defaultChecked }) => {
 const SectionContent = ({ section, user, registry }) => {
   const [saving, setSaving] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const { register } = useAuth();
 
   const [company, setCompany] = useState({
     name: '', website: '', industry: '', size: '', email: '', phone: '', address: '',
@@ -77,9 +70,14 @@ const SectionContent = ({ section, user, registry }) => {
     phone: '', currentPassword: '', newPassword: '', confirmPassword: '',
   });
 
-  const [inviteForm, setInviteForm] = useState({ name: '', email: '', password: '', role: 'Employee', department: '' });
+  // Create-account form. Roles offered here are Admin / HR / Manager only
+  // (Employee accounts are not created from this admin page). Default to HR.
+  const [inviteForm, setInviteForm] = useState({ name: '', email: '', password: '', role: 'HR', department: '' });
 
   const DEPTS = ['Engineering','Human Resources','Marketing','Sales','Finance','Operations','Design','Legal'];
+
+  // Department is required only for HR and Manager; Admin has no department.
+  const departmentRequired = inviteForm.role === 'HR' || inviteForm.role === 'Manager';
 
   const handleSave = async () => {
     setSaving(true);
@@ -92,22 +90,35 @@ const SectionContent = ({ section, user, registry }) => {
 
   const handleInvite = async (e) => {
     e.preventDefault();
-    const res = await register(inviteForm);
-    if (res.success) {
-      toast.success(`Account created for ${inviteForm.name}`);
-      setInviteOpen(false);
-      setInviteForm({ name: '', email: '', password: '', role: 'Employee', department: '' });
-      // Refresh users list
-      import('../services/api').then(({ authAPI }) => {
-        authAPI.getUsers().then(r => {
-          if (r.data?.success) {
-            // Bubble up to parent Settings component — use a ref trick
-            window.__refreshUsers?.();
-          }
-        }).catch(() => {});
-      });
-    } else {
-      toast.error(res.error);
+
+    // Department is mandatory for HR and Manager only; Admin must have none.
+    const isDeptRequired = inviteForm.role === 'HR' || inviteForm.role === 'Manager';
+    if (isDeptRequired && !inviteForm.department) {
+      toast.error('Department is required for HR and Manager roles');
+      return;
+    }
+
+    // Admin never carries a department — strip it before submitting.
+    const payload = {
+      ...inviteForm,
+      department: inviteForm.role === 'Admin' ? '' : inviteForm.department,
+    };
+
+    // Use the admin-only create-user endpoint so the selected role is honoured
+    // (public /register ignores role). This does NOT sign the admin out.
+    try {
+      const { authAPI } = await import('../services/api');
+      const { data } = await authAPI.createUser(payload);
+      if (data?.success) {
+        toast.success(`Account created for ${inviteForm.name}`);
+        setInviteOpen(false);
+        setInviteForm({ name: '', email: '', password: '', role: 'HR', department: '' });
+        window.__refreshUsers?.();
+      } else {
+        toast.error(data?.message || 'Failed to create account');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to create account');
     }
   };
 
@@ -278,17 +289,28 @@ const SectionContent = ({ section, user, registry }) => {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Role</label>
-                  <select className="form-control form-select" value={inviteForm.role} onChange={e => setInviteForm(f => ({ ...f, role: e.target.value }))}>
-                    {['Admin','HR','Manager','Employee'].map(r => <option key={r} value={r}>{r}</option>)}
+                  <select
+                    className="form-control form-select"
+                    value={inviteForm.role}
+                    onChange={e => {
+                      const role = e.target.value;
+                      // Clear the department when switching to Admin (Admin has no department).
+                      setInviteForm(f => ({ ...f, role, department: role === 'Admin' ? '' : f.department }));
+                    }}
+                  >
+                    {['Admin', 'HR', 'Manager'].map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Department</label>
-                  <select className="form-control form-select" value={inviteForm.department} onChange={e => setInviteForm(f => ({ ...f, department: e.target.value }))}>
-                    <option value="">Select department</option>
-                    {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
+                {/* Department: shown only for HR and Manager; hidden for Admin */}
+                {departmentRequired && (
+                  <div className="form-group">
+                    <label className="form-label">Department <span className="required">*</span></label>
+                    <select className="form-control form-select" required value={inviteForm.department} onChange={e => setInviteForm(f => ({ ...f, department: e.target.value }))}>
+                      <option value="">Select department</option>
+                      {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
             </form>
           </Modal>
@@ -297,36 +319,7 @@ const SectionContent = ({ section, user, registry }) => {
 
     /* ── Roles & Permissions ─────────────────────────────────────────── */
     case 'roles':
-      return (
-        <div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: 20 }}>Configure what each role can access and modify</p>
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Permission</th>
-                  {Object.keys(PERMISSIONS).map(r => <th key={r} style={{ textAlign: 'center' }}>{r}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {['employees','attendance','leave','payroll','performance','reports','departments','settings'].map(perm => (
-                  <tr key={perm}>
-                    <td style={{ fontWeight: 500, textTransform: 'capitalize' }}>{perm}</td>
-                    {Object.entries(PERMISSIONS).map(([role, perms]) => (
-                      <td key={role} style={{ textAlign: 'center' }}>
-                        <input type="checkbox" defaultChecked={perms[perm]} style={{ accentColor: 'var(--primary)', width: 15, height: 15 }} />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-            <button className="btn btn-primary" onClick={handleSave}><Save size={14} /> Save Permissions</button>
-          </div>
-        </div>
-      );
+      return <RolePermissionsManager />;
 
     /* ── Notifications ───────────────────────────────────────────────── */
     case 'notifications':
@@ -454,7 +447,14 @@ const SectionContent = ({ section, user, registry }) => {
 /* ── Settings Page ─────────────────────────────────────────────────────── */
 const Settings = ({ initialSection }) => {
   const { user } = useAuth();
-  const [activeSection, setActiveSection] = useState(initialSection || 'company');
+  const isAdminOnly = user?.role === 'Admin';
+
+  // The Roles & Permissions section is Admin-only. Hide it entirely for other roles.
+  const visibleSections = SETTINGS_SECTIONS.filter(s => s.id !== 'roles' || isAdminOnly);
+
+  const requested = initialSection || 'company';
+  const allowedRequested = visibleSections.some(s => s.id === requested) ? requested : 'company';
+  const [activeSection, setActiveSection] = useState(allowedRequested);
   const [registry, setRegistry] = useState([]);
 
   // Load real users from backend when users tab is opened
@@ -471,7 +471,9 @@ const Settings = ({ initialSection }) => {
     window.__refreshUsers = load;
     return () => { delete window.__refreshUsers; };
   }, [activeSection]);
-  const section  = SETTINGS_SECTIONS.find(s => s.id === activeSection);
+  // Guard: never allow a non-admin to view the roles section even via state.
+  const effectiveSection = (activeSection === 'roles' && !isAdminOnly) ? 'company' : activeSection;
+  const section  = visibleSections.find(s => s.id === effectiveSection) || SETTINGS_SECTIONS[0];
   const Icon     = section?.icon;
 
   return (
@@ -484,7 +486,7 @@ const Settings = ({ initialSection }) => {
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 24 }}>
         {/* Sidebar */}
         <div className="card" style={{ overflow: 'hidden', height: 'fit-content' }}>
-          {SETTINGS_SECTIONS.map(s => {
+          {visibleSections.map(s => {
             const SIcon    = s.icon;
             const isActive = activeSection === s.id;
             return (
@@ -517,7 +519,7 @@ const Settings = ({ initialSection }) => {
           </div>
           <div className="card-body">
             <SectionContent
-              section={activeSection}
+              section={effectiveSection}
               user={user}
               registry={registry}
             />

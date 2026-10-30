@@ -40,6 +40,14 @@ export const authAPI = {
   changePassword: (data) => api.put('/auth/change-password', data),
   getUsers:       ()     => api.get('/auth/users'),
   setUserStatus:  (id, data) => api.put(`/auth/users/${id}/status`, data),
+  createUser:     (data) => api.post('/auth/users', data),
+};
+
+// ── Role Permissions (Admin only) ──────────────────────────────────────────────
+export const permissionAPI = {
+  getAll:  ()             => api.get('/permissions'),
+  getRole: (role)         => api.get(`/permissions/${role}`),
+  update:  (role, data)   => api.put(`/permissions/${role}`, data),
 };
 
 // ── Employees ─────────────────────────────────────────────────────────────────
@@ -80,6 +88,32 @@ export const leaveAPI = {
   apply:        (data)      => api.post('/leave', data),
   updateStatus: (id, data)  => api.put(`/leave/${id}/status`, data),
   cancel:       (id)        => api.put(`/leave/${id}/cancel`),
+};
+
+// ── Holidays ──────────────────────────────────────────────────────────────────
+export const holidayAPI = {
+  getAll:   (params)   => api.get('/holidays', { params }),
+  getById:  (id)       => api.get(`/holidays/${id}`),
+  create:   (data)     => api.post('/holidays', data),
+  update:   (id, data) => api.put(`/holidays/${id}`, data),
+  delete:   (id)       => api.delete(`/holidays/${id}`),
+};
+
+// ── Overtime ──────────────────────────────────────────────────────────────────
+export const overtimeAPI = {
+  getAll:   (params)   => api.get('/overtime', { params }),
+  create:   (data)     => api.post('/overtime', data),
+  update:   (id, data) => api.put(`/overtime/${id}`, data),
+  settle:   (id)       => api.put(`/overtime/${id}/settle`),
+  delete:   (id)       => api.delete(`/overtime/${id}`),
+};
+
+// ── Advances ──────────────────────────────────────────────────────────────────
+export const advanceAPI = {
+  getAll:   (params)   => api.get('/advances', { params }),
+  create:   (data)     => api.post('/advances', data),
+  update:   (id, data) => api.put(`/advances/${id}`, data),
+  delete:   (id)       => api.delete(`/advances/${id}`),
 };
 
 // ── Tasks ─────────────────────────────────────────────────────────────────────

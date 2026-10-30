@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import AppLayout from './components/layout/AppLayout';
 import EmployeeLayout from './components/employee/EmployeeLayout';
+import ProtectedModule from './components/ProtectedModule';
 
 // Auth Pages
 import Login          from './pages/auth/Login';
@@ -34,6 +35,13 @@ import LeaveRequests from './pages/leave/LeaveRequests';
 import ApplyLeave    from './pages/leave/ApplyLeave';
 import LeaveApproval from './pages/leave/LeaveApproval';
 import LeaveBalance  from './pages/leave/LeaveBalance';
+
+import HolidayRecords  from './pages/holidays/HolidayRecords';
+import HolidayCalendar from './pages/holidays/HolidayCalendar';
+
+import OvertimeRecords from './pages/overtime/OvertimeRecords';
+
+import AdvanceRecords from './pages/advances/AdvanceRecords';
 
 import SalaryStructure from './pages/payroll/SalaryStructure';
 import GeneratePayroll from './pages/payroll/GeneratePayroll';
@@ -105,49 +113,62 @@ function App() {
             <Route element={<AppLayout />}>
               {/* Dashboard */}
               <Route path="/"          element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard" element={<ProtectedModule moduleKey="dashboard"><Dashboard /></ProtectedModule>} />
 
               {/* Employees */}
               <Route path="/employees"          element={<Navigate to="/employees/list" replace />} />
-              <Route path="/employees/list"     element={<EmployeeList />} />
-              <Route path="/employees/add"      element={<AddEmployee />} />
-              <Route path="/employees/edit/:id" element={<AddEmployee />} />
-              <Route path="/employees/:id"      element={<EmployeeProfile />} />
+              <Route path="/employees/list"     element={<ProtectedModule moduleKey="employees.list"><EmployeeList /></ProtectedModule>} />
+              <Route path="/employees/add"      element={<ProtectedModule moduleKey="employees.add"><AddEmployee /></ProtectedModule>} />
+              <Route path="/employees/edit/:id" element={<ProtectedModule moduleKey="employees.add"><AddEmployee /></ProtectedModule>} />
+              <Route path="/employees/:id"      element={<ProtectedModule moduleKey="employees.list"><EmployeeProfile /></ProtectedModule>} />
 
               {/* Departments */}
-              <Route path="/departments" element={<Departments />} />
-              <Route path="/roles"       element={<Roles />} />
+              <Route path="/departments" element={<ProtectedModule moduleKey="departments.departments"><Departments /></ProtectedModule>} />
+              <Route path="/roles"       element={<ProtectedModule moduleKey="departments.roles"><Roles /></ProtectedModule>} />
 
               {/* Attendance */}
               <Route path="/attendance"         element={<Navigate to="/attendance/daily" replace />} />
-              <Route path="/attendance/daily"   element={<DailyAttendance />} />
-              <Route path="/attendance/history" element={<AttendanceHistory />} />
-              <Route path="/attendance/reports" element={<AttendanceReports />} />
+              <Route path="/attendance/daily"   element={<ProtectedModule moduleKey="attendance.daily"><DailyAttendance /></ProtectedModule>} />
+              <Route path="/attendance/history" element={<ProtectedModule moduleKey="attendance.history"><AttendanceHistory /></ProtectedModule>} />
+              <Route path="/attendance/reports" element={<ProtectedModule moduleKey="attendance.reports"><AttendanceReports /></ProtectedModule>} />
 
               {/* Leave */}
               <Route path="/leave"          element={<Navigate to="/leave/requests" replace />} />
-              <Route path="/leave/requests" element={<LeaveRequests />} />
-              <Route path="/leave/apply"    element={<ApplyLeave />} />
-              <Route path="/leave/approval" element={<LeaveApproval />} />
-              <Route path="/leave/balance"  element={<LeaveBalance />} />
+              <Route path="/leave/requests" element={<ProtectedModule moduleKey="leave.requests"><LeaveRequests /></ProtectedModule>} />
+              <Route path="/leave/apply"    element={<ProtectedModule moduleKey="leave.apply"><ApplyLeave /></ProtectedModule>} />
+              <Route path="/leave/approval" element={<ProtectedModule moduleKey="leave.approval"><LeaveApproval /></ProtectedModule>} />
+              <Route path="/leave/balance"  element={<ProtectedModule moduleKey="leave.balance"><LeaveBalance /></ProtectedModule>} />
+
+              {/* Holidays */}
+              <Route path="/holidays"          element={<Navigate to="/holidays/records" replace />} />
+              <Route path="/holidays/records"  element={<ProtectedModule moduleKey="holidays.records"><HolidayRecords /></ProtectedModule>} />
+              <Route path="/holidays/calendar" element={<ProtectedModule moduleKey="holidays.calendar"><HolidayCalendar /></ProtectedModule>} />
+
+              {/* Overtime */}
+              <Route path="/overtime"         element={<Navigate to="/overtime/records" replace />} />
+              <Route path="/overtime/records" element={<ProtectedModule moduleKey="overtime.records"><OvertimeRecords /></ProtectedModule>} />
+
+              {/* Advances */}
+              <Route path="/advances"         element={<Navigate to="/advances/records" replace />} />
+              <Route path="/advances/records" element={<ProtectedModule moduleKey="advances.records"><AdvanceRecords /></ProtectedModule>} />
 
               {/* Payroll */}
               <Route path="/payroll"          element={<Navigate to="/payroll/salary" replace />} />
-              <Route path="/payroll/salary"   element={<SalaryStructure />} />
-              <Route path="/payroll/generate" element={<GeneratePayroll />} />
-              <Route path="/payroll/history"  element={<PayrollHistory />} />
-              <Route path="/payroll/payslips" element={<Payslips />} />
+              <Route path="/payroll/salary"   element={<ProtectedModule moduleKey="payroll.salary"><SalaryStructure /></ProtectedModule>} />
+              <Route path="/payroll/generate" element={<ProtectedModule moduleKey="payroll.generate"><GeneratePayroll /></ProtectedModule>} />
+              <Route path="/payroll/history"  element={<ProtectedModule moduleKey="payroll.history"><PayrollHistory /></ProtectedModule>} />
+              <Route path="/payroll/payslips" element={<ProtectedModule moduleKey="payroll.payslips"><Payslips /></ProtectedModule>} />
 
               {/* Performance */}
               <Route path="/performance"         element={<Navigate to="/performance/reviews" replace />} />
-              <Route path="/performance/reviews" element={<PerformanceReviews />} />
-              <Route path="/performance/goals"   element={<Goals />} />
+              <Route path="/performance/reviews" element={<ProtectedModule moduleKey="performance.reviews"><PerformanceReviews /></ProtectedModule>} />
+              <Route path="/performance/goals"   element={<ProtectedModule moduleKey="performance.goals"><Goals /></ProtectedModule>} />
 
               {/* Reports */}
-              <Route path="/reports" element={<Reports />} />
+              <Route path="/reports" element={<ProtectedModule moduleKey="reports"><Reports /></ProtectedModule>} />
 
               {/* Settings */}
-              <Route path="/settings"         element={<Settings />} />
+              <Route path="/settings"         element={<ProtectedModule moduleKey="settings"><Settings /></ProtectedModule>} />
               <Route path="/settings/profile" element={<Settings initialSection="profile" />} />
             </Route>
 

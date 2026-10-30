@@ -139,21 +139,74 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-  const hasPermission = (permission) => {
+  // ── Permissions ──────────────────────────────────────────────────────────
+  // The backend returns `user.permissions` ({ moduleKey: boolean }) on login,
+  // register, google-login and /me. Admin receives every key = true.
+  //
+  // `canAccess(moduleKey)` is the single gate used by routes, the sidebar, and
+  // any component that wants to hide/show a module.
+  const canAccess = (moduleKey) => {
     if (!user) return false;
-    const map = {
-      Admin:    ['*'],
-      HR:       ['employees', 'attendance', 'leave', 'payroll', 'reports', 'departments'],
-      Manager:  ['team_employees', 'attendance', 'leave_approval', 'performance'],
-      Employee: ['my_profile', 'my_attendance', 'my_leave', 'my_payroll', 'my_performance'],
-    };
-    const perms = map[user.role] || [];
-    return perms.includes('*') || perms.includes(permission);
+    if (user.role === 'Admin') return true;
+    const perms = user.permissions || {};
+    return perms[moduleKey] === true;
   };
+
+  // Action-level check: can the current user perform `action`
+  // (view/add/edit/delete/manage) on a top-level `moduleKey`?
+  // Admin always true. moduleKey may be a submodule key (e.g. 'employees.list')
+  // — the parent module's actions apply.
+  const can = (moduleKey, action = 'view') => {
+    if (!user) return false;
+    if (user.role === 'Admin') return true;
+    const parent = String(moduleKey || '').split('.')[0];
+    const actions = user.actions || {};
+    const moduleActions = actions[parent];
+    return !!moduleActions && moduleActions[action] === true;
+  };
+
+  // Legacy helper kept for backward compatibility with older call sites.
+  const hasPermission = (permission) => canAccess(permission);
 
   const isAdmin    = () => user?.role === 'Admin' || user?.role === 'HR' || user?.role === 'Manager';
   const isEmployee = () => user?.role === 'Employee';
+  // Strictly the Admin role — used to gate permission management itself.
+  const isSuperAdmin = () => user?.role === 'Admin';
+
+  // ── Dynamic permission refresh (no re-login required) ──────────────────────
+  // Re-fetch the current user (which includes live permissions) on an interval
+  // and when the tab regains focus, so Admin permission changes take effect for
+  // already-logged-in users within a short window.
+  const refreshMe = async () => {
+    try {
+      const { data } = await authAPI.getMe();
+      if (data?.success && data.user) {
+        setUser(prev => {
+          const next = data.user;
+          // Only persist if something actually changed to avoid redundant writes.
+          const changed = JSON.stringify(prev?.permissions) !== JSON.stringify(next.permissions)
+            || JSON.stringify(prev?.actions) !== JSON.stringify(next.actions)
+            || prev?.role !== next.role;
+          if (changed) localStorage.setItem('ems-user', JSON.stringify(next));
+          return changed ? next : prev;
+        });
+      }
+    } catch { /* ignore transient errors; interceptor handles 401 */ }
+  };
+
+  useEffect(() => {
+    if (!user) return undefined;
+    // Refresh shortly after mount, then poll every 30s, and on focus.
+    refreshMe();
+    const interval = setInterval(refreshMe, 30000);
+    const onFocus = () => refreshMe();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Legacy compatibility: getRegistry returns empty array (no longer needed)
   const getRegistry   = () => [];
@@ -165,9 +218,10 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{
       user, loading,
       login, loginWithGoogle, logout, register,
-      hasPermission, getRegistry, hasAnyAccount,
+      hasPermission, canAccess, can, getRegistry, hasAnyAccount,
       updateProfile, changePassword,
-      isAdmin, isEmployee,
+      isAdmin, isEmployee, isSuperAdmin,
+      refreshMe,
     }}>
       {children}
     </AuthContext.Provider>

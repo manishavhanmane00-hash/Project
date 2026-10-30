@@ -5,10 +5,11 @@ import {
   Clock, BarChart3, PlaneTakeoff,
   DollarSign, Star,
   Settings, ChevronRight, LogOut,
-  Shield
+  Shield, CalendarDays, Timer, Wallet
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { ROUTE_PERMISSION_MAP } from '../../config/modules';
 import Avatar from '../shared/Avatar';
 
 const NAV_ITEMS = [
@@ -57,6 +58,40 @@ const NAV_ITEMS = [
           { label: 'Leave Balance', path: '/leave/balance' },
         ],
         badge: 3,
+      },
+    ],
+  },
+  {
+    label: 'Holidays',
+    items: [
+      {
+        icon: CalendarDays, label: 'Holidays', path: '/holidays',
+        sub: [
+          { label: 'Holiday Records', path: '/holidays/records' },
+          { label: 'Holiday Calendar', path: '/holidays/calendar' },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Overtime',
+    items: [
+      {
+        icon: Timer, label: 'Overtime', path: '/overtime',
+        sub: [
+          { label: 'Overtime Records', path: '/overtime/records' },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Advances',
+    items: [
+      {
+        icon: Wallet, label: 'Advances', path: '/advances',
+        sub: [
+          { label: 'Advance Records', path: '/advances/records' },
+        ],
       },
     ],
   },
@@ -167,22 +202,41 @@ const SubNavItem = ({ item }) => {
   );
 };
 
+// Resolve the permission key that gates a nav path. Falls back to the first
+// path segment (e.g. '/payroll' → 'payroll') when there is no exact mapping.
+const permKeyForPath = (path) => {
+  if (ROUTE_PERMISSION_MAP[path]) return ROUTE_PERMISSION_MAP[path];
+  const seg = (path || '').split('/').filter(Boolean)[0];
+  return seg || null;
+};
+
 const Sidebar = () => {
   const { sidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen, leaveRequests } = useApp();
-  const { user, logout } = useAuth();
+  const { user, logout, canAccess } = useAuth();
   const navigate = useNavigate();
 
   const pendingLeaveCount = leaveRequests.filter(r => r.status === 'pending').length;
 
-  // Inject live badge count for Leave Management
-  const navItemsWithBadge = NAV_ITEMS.map(section => ({
-    ...section,
-    items: section.items.map(item =>
-      item.path === '/leave'
-        ? { ...item, badge: pendingLeaveCount || undefined }
-        : item
-    ),
-  }));
+  // Filter nav items by the current role's permissions, then inject the live
+  // Leave badge. A parent is shown only if it (or at least one visible submenu
+  // item) is accessible. Submenu items are filtered individually.
+  const navItemsWithBadge = NAV_ITEMS.map(section => {
+    const items = section.items.reduce((acc, item) => {
+      if (item.sub) {
+        const visibleSub = item.sub.filter(s => canAccess(permKeyForPath(s.path)));
+        if (visibleSub.length === 0) return acc; // hide whole group
+        acc.push({
+          ...item,
+          sub: visibleSub,
+          badge: item.path === '/leave' ? (pendingLeaveCount || undefined) : item.badge,
+        });
+      } else if (canAccess(permKeyForPath(item.path))) {
+        acc.push(item);
+      }
+      return acc;
+    }, []);
+    return { ...section, items };
+  }).filter(section => section.items.length > 0);
 
   const handleLogout = () => {
     logout();

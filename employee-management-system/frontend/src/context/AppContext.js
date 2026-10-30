@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import {
   employeeAPI, attendanceAPI, leaveAPI, payrollAPI, performanceAPI,
   notificationAPI, departmentAPI, taskAPI, reportAPI,
+  holidayAPI, overtimeAPI, advanceAPI,
 } from '../services/api';
 import { useAuth } from './AuthContext';
 
@@ -31,6 +32,9 @@ export const AppProvider = ({ children }) => {
   const [performanceReviews, setPerformanceReviews] = useState([]);
   const [notifications,      setNotifications]      = useState([]);
   const [dashboardStats,     setDashboardStats]     = useState(null);
+  const [holidays,           setHolidays]           = useState([]);
+  const [overtimeEntries,    setOvertimeEntries]    = useState([]);
+  const [advanceRecords,     setAdvanceRecords]     = useState([]);
 
   const currency = { code: 'INR', symbol: '₹', locale: 'en-IN' };
   const toggleSidebar = () => setSidebarCollapsed(c => !c);
@@ -106,12 +110,34 @@ export const AppProvider = ({ children }) => {
     } catch { }
   }, []);
 
+  const fetchHolidays = useCallback(async () => {
+    try {
+      const { data } = await holidayAPI.getAll();
+      if (data.success) setHolidays(data.data);
+    } catch { }
+  }, []);
+
+  const fetchOvertime = useCallback(async () => {
+    try {
+      const { data } = await overtimeAPI.getAll();
+      if (data.success) setOvertimeEntries(data.data);
+    } catch { }
+  }, []);
+
+  const fetchAdvances = useCallback(async () => {
+    try {
+      const { data } = await advanceAPI.getAll();
+      if (data.success) setAdvanceRecords(data.data);
+    } catch { }
+  }, []);
+
   // Load all data when user logs in
   useEffect(() => {
     if (!user) {
       setEmployees([]); setDepartments([]); setAttendanceData([]); setLeaveRequests([]);
       setPayrollData([]); setPerformanceReviews([]); setNotifications([]); setTasks([]);
       setLeaveBalances([]); setDashboardStats(null);
+      setHolidays([]); setOvertimeEntries([]); setAdvanceRecords([]);
       return;
     }
     fetchEmployees();
@@ -124,7 +150,10 @@ export const AppProvider = ({ children }) => {
     fetchPerformance();
     fetchNotifications();
     fetchDashboardStats();
-  }, [user, fetchEmployees, fetchDepartments, fetchAttendance, fetchLeave, fetchLeaveBalances, fetchTasks, fetchPayroll, fetchPerformance, fetchNotifications, fetchDashboardStats]);
+    fetchHolidays();
+    fetchOvertime();
+    fetchAdvances();
+  }, [user, fetchEmployees, fetchDepartments, fetchAttendance, fetchLeave, fetchLeaveBalances, fetchTasks, fetchPayroll, fetchPerformance, fetchNotifications, fetchDashboardStats, fetchHolidays, fetchOvertime, fetchAdvances]);
 
   // ── Employee CRUD ──────────────────────────────────────────────────────────
   const addEmployee = async (emp) => {
@@ -252,6 +281,69 @@ export const AppProvider = ({ children }) => {
     throw new Error(data.message);
   };
 
+  // ── Holidays ───────────────────────────────────────────────────────────────
+  const addHoliday = async (holiday) => {
+    const { data } = await holidayAPI.create(holiday);
+    if (data.success) { setHolidays(prev => [data.data, ...prev]); return data.data; }
+    throw new Error(data.message);
+  };
+
+  const updateHoliday = async (id, updates) => {
+    const { data } = await holidayAPI.update(id, updates);
+    if (data.success) { setHolidays(prev => prev.map(h => (h._id === id || h.id === id) ? data.data : h)); return data.data; }
+    throw new Error(data.message);
+  };
+
+  const deleteHoliday = async (id) => {
+    const { data } = await holidayAPI.delete(id);
+    if (data.success) { setHolidays(prev => prev.filter(h => h._id !== id && h.id !== id)); return data.data; }
+    throw new Error(data.message);
+  };
+
+  // ── Overtime ───────────────────────────────────────────────────────────────
+  const addOvertime = async (entry) => {
+    const { data } = await overtimeAPI.create(entry);
+    if (data.success) { setOvertimeEntries(prev => [data.data, ...prev]); return data.data; }
+    throw new Error(data.message);
+  };
+
+  const updateOvertime = async (id, updates) => {
+    const { data } = await overtimeAPI.update(id, updates);
+    if (data.success) { setOvertimeEntries(prev => prev.map(o => (o._id === id || o.id === id) ? data.data : o)); return data.data; }
+    throw new Error(data.message);
+  };
+
+  const settleOvertime = async (id) => {
+    const { data } = await overtimeAPI.settle(id);
+    if (data.success) { setOvertimeEntries(prev => prev.map(o => (o._id === id || o.id === id) ? data.data : o)); return data.data; }
+    throw new Error(data.message);
+  };
+
+  const deleteOvertime = async (id) => {
+    const { data } = await overtimeAPI.delete(id);
+    if (data.success) { setOvertimeEntries(prev => prev.filter(o => o._id !== id && o.id !== id)); return data.data; }
+    throw new Error(data.message);
+  };
+
+  // ── Advances ───────────────────────────────────────────────────────────────
+  const addAdvance = async (record) => {
+    const { data } = await advanceAPI.create(record);
+    if (data.success) { setAdvanceRecords(prev => [data.data, ...prev]); return data.data; }
+    throw new Error(data.message);
+  };
+
+  const updateAdvance = async (id, updates) => {
+    const { data } = await advanceAPI.update(id, updates);
+    if (data.success) { setAdvanceRecords(prev => prev.map(a => (a._id === id || a.id === id) ? data.data : a)); return data.data; }
+    throw new Error(data.message);
+  };
+
+  const deleteAdvance = async (id) => {
+    const { data } = await advanceAPI.delete(id);
+    if (data.success) { setAdvanceRecords(prev => prev.filter(a => a._id !== id && a.id !== id)); return data.data; }
+    throw new Error(data.message);
+  };
+
   // ── Tasks ──────────────────────────────────────────────────────────────────
   const addTask = async (task) => {
     const { data } = await taskAPI.create(task);
@@ -340,9 +432,12 @@ export const AppProvider = ({ children }) => {
     performanceReviews, setPerformanceReviews, savePerformanceReview,
     notifications, addNotification, markNotifRead, markAllNotifsRead, deleteNotif,
     dashboardStats, fetchDashboardStats,
+    holidays,        addHoliday,  updateHoliday,  deleteHoliday,  fetchHolidays,
+    overtimeEntries, addOvertime, updateOvertime, settleOvertime, deleteOvertime, fetchOvertime,
+    advanceRecords,  addAdvance,  updateAdvance,  deleteAdvance,  fetchAdvances,
     // Refresh helpers
-    fetchEmployees, fetchDepartments, fetchAttendance, fetchLeave, fetchLeaveBalances,
-    fetchPayroll, fetchPerformance, fetchNotifications, fetchTasks, fetchDashboardStats,
+    fetchEmployees, fetchAttendance, fetchLeave,
+    fetchPayroll, fetchPerformance, fetchNotifications,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

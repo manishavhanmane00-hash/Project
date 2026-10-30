@@ -4,6 +4,7 @@ const {
   register, login, googleLogin,
   getMe, updateMe, changePassword,
   forgotPassword, setUserStatus,
+  adminCreateUser,
 } = require('../controllers/authController');
 const { protect, adminOnly } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimiter');
@@ -31,5 +32,8 @@ router.get('/users', protect, adminOnly, async (req, res) => {
 });
 
 router.put('/users/:id/status', protect, adminOnly, setUserStatus);
+
+// Admin: create an account with an explicit role (Admin/HR/Manager)
+router.post('/users', protect, adminOnly, adminCreateUser);
 
 module.exports = router;

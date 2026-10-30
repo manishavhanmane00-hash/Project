@@ -2,6 +2,7 @@ const jwt    = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const User   = require('../models/User');
+const { resolvePermissionsForRole } = require('./permissionController');
 
 /**
  * Sign a JWT for the given user document.
@@ -31,6 +32,15 @@ const safeUser = (user) => ({
   avatar:      user.avatar,
   isActive:    user.isActive,
 });
+
+/**
+ * safeUser + the role's effective permission map. Used by login/google/getMe so
+ * the frontend receives permissions immediately and can gate UI without re-login.
+ */
+const safeUserWithPermissions = async (user) => {
+  const { permissions, actions } = await resolvePermissionsForRole(user.role);
+  return { ...safeUser(user), permissions, actions };
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/auth/register
@@ -85,6 +95,63 @@ const register = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /api/auth/users   (adminOnly)
+// Admin creates an account with an explicit role. Unlike public /register,
+// this endpoint honours the chosen role — but only Admin can call it.
+//
+// Role is restricted to Admin / HR / Manager (Employee accounts are not created
+// from the admin "Create New Account" page). Department is mandatory for HR and
+// Manager, and must be empty for Admin — enforced here to stay consistent with
+// the frontend validation.
+// ─────────────────────────────────────────────────────────────────────────────
+const CREATABLE_ROLES = ['Admin', 'HR', 'Manager'];
+
+const adminCreateUser = async (req, res) => {
+  try {
+    const { name, email, password, role, designation, department } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Name, email and password are required' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+    if (!CREATABLE_ROLES.includes(role)) {
+      return res.status(400).json({ success: false, message: `Role must be one of: ${CREATABLE_ROLES.join(', ')}` });
+    }
+
+    // Department rules: required for HR/Manager, forced empty for Admin.
+    const deptRequired = role === 'HR' || role === 'Manager';
+    if (deptRequired && (!department || !String(department).trim())) {
+      return res.status(400).json({ success: false, message: 'Department is required for HR and Manager roles' });
+    }
+    const finalDepartment = role === 'Admin' ? '' : String(department || '').trim();
+
+    const exists = await User.findOne({ email: email.toLowerCase().trim() });
+    if (exists) {
+      return res.status(400).json({ success: false, message: 'An account with this email already exists' });
+    }
+
+    const user = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password,   // hashed by pre-save hook
+      role,
+      designation: designation || '',
+      department:  finalDepartment,
+    });
+
+    const created = await User.findById(user._id).select('-password');
+    res.status(201).json({ success: true, user: safeUser(created) });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ success: false, message: 'An account with this email already exists' });
+    }
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // POST /api/auth/login
 // ─────────────────────────────────────────────────────────────────────────────
 const login = async (req, res) => {
@@ -112,7 +179,7 @@ const login = async (req, res) => {
     }
 
     const token = signToken(user);
-    res.json({ success: true, token, user: safeUser(user) });
+    res.json({ success: true, token, user: await safeUserWithPermissions(user) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -239,7 +306,7 @@ const googleLogin = async (req, res) => {
 
     // Issue our own JWT — same as email/password login
     const token = signToken(user);
-    res.json({ success: true, token, user: safeUser(user), isNew });
+    res.json({ success: true, token, user: await safeUserWithPermissions(user), isNew });
   } catch (err) {
     console.error('[Google Auth] Error:', err.message);
     res.status(500).json({ success: false, message: 'Google sign-in failed. Please try again.' });
@@ -253,7 +320,7 @@ const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    res.json({ success: true, user: safeUser(user) });
+    res.json({ success: true, user: await safeUserWithPermissions(user) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -362,4 +429,5 @@ module.exports = {
   register, login, googleLogin,
   getMe, updateMe, changePassword,
   forgotPassword, setUserStatus,
+  adminCreateUser,
 };

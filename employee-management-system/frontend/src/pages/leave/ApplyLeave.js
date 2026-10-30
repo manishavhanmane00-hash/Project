@@ -6,6 +6,18 @@ import { useAuth } from '../../context/AuthContext';
 import { LEAVE_TYPES } from '../../data/sampleData';
 import toast from 'react-hot-toast';
 
+// Screenshot leave-type labels offered in the form (Req 2.2).
+// Each label maps to the stored `Leave` enum value (Req 2.3, 18.1): the "Earned"
+// label is submitted as the existing enum value "Annual Leave" so the enum stays valid.
+const LEAVE_TYPE_OPTIONS = [
+  { label: 'Casual',     value: 'Casual Leave' },
+  { label: 'Sick',       value: 'Sick Leave' },
+  { label: 'Earned',     value: 'Annual Leave' },
+  { label: 'Unpaid',     value: 'Unpaid Leave' },
+  { label: 'Maternity',  value: 'Maternity Leave' },
+  { label: 'Paternity',  value: 'Paternity Leave' },
+];
+
 const ApplyLeave = () => {
   const navigate = useNavigate();
   const { addLeaveRequest, employees, leaveBalances } = useApp();
@@ -39,20 +51,28 @@ const ApplyLeave = () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setSubmitting(true);
-    await new Promise(r => setTimeout(r, 600));
-    addLeaveRequest({
-      employeeId: selectedEmp?.id || form.employee,
-      employeeName: selectedEmp?.name || form.employee,
-      department: selectedEmp?.department || '',
-      leaveType: form.leaveType,
-      startDate: form.startDate,
-      endDate: form.endDate,
-      days,
-      reason: form.reason,
-    });
-    toast.success('Leave request submitted successfully');
-    setSubmitting(false);
-    navigate('/leave/requests');
+    try {
+      // Map the screenshot label to the stored Leave enum value (Earned → "Annual Leave").
+      const mapped = LEAVE_TYPE_OPTIONS.find(t => t.label === form.leaveType);
+      const leaveType = mapped ? mapped.value : form.leaveType;
+      await addLeaveRequest({
+        employeeId: selectedEmp?.id || form.employee,
+        employeeName: selectedEmp?.name || form.employee,
+        department: selectedEmp?.department || '',
+        leaveType,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        days,
+        reason: form.reason,
+      });
+      toast.success('Leave request submitted successfully');
+      navigate('/leave/requests');
+    } catch (err) {
+      // Surface the backend validation message and retain entered values (Req 17.2).
+      toast.error(err.message || 'Failed to submit leave request');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -80,7 +100,7 @@ const ApplyLeave = () => {
                   <label className="form-label">Leave Type <span className="required">*</span></label>
                   <select className={`form-control form-select ${errors.leaveType ? 'error' : ''}`} value={form.leaveType} onChange={e => set('leaveType', e.target.value)}>
                     <option value="">Select leave type</option>
-                    {LEAVE_TYPES.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                    {LEAVE_TYPE_OPTIONS.map(t => <option key={t.value} value={t.label}>{t.label}</option>)}
                   </select>
                   {errors.leaveType && <div className="form-error">{errors.leaveType}</div>}
                 </div>

@@ -9,12 +9,16 @@ const employeeRoutes     = require('./routes/employeeRoutes');
 const authRoutes         = require('./routes/authRoutes');
 const attendanceRoutes   = require('./routes/attendanceRoutes');
 const leaveRoutes        = require('./routes/leaveRoutes');
+const holidayRoutes      = require('./routes/holidayRoutes');
+const overtimeRoutes     = require('./routes/overtimeRoutes');
+const advanceRoutes      = require('./routes/advanceRoutes');
 const departmentRoutes   = require('./routes/departmentRoutes');
 const taskRoutes         = require('./routes/taskRoutes');
 const reportRoutes       = require('./routes/reportRoutes');
 const payrollRoutes      = require('./routes/payrollRoutes');
 const performanceRoutes  = require('./routes/performanceRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const permissionRoutes   = require('./routes/permissionRoutes');
 
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimiter');
@@ -46,12 +50,16 @@ app.use('/api/auth',          authRoutes);
 app.use('/api/employees',     employeeRoutes);
 app.use('/api/attendance',    attendanceRoutes);
 app.use('/api/leave',         leaveRoutes);
+app.use('/api/holidays',      holidayRoutes);
+app.use('/api/overtime',      overtimeRoutes);
+app.use('/api/advances',      advanceRoutes);
 app.use('/api/departments',   departmentRoutes);
 app.use('/api/tasks',         taskRoutes);
 app.use('/api/reports',       reportRoutes);
 app.use('/api/payroll',       payrollRoutes);
 app.use('/api/performance',   performanceRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/permissions',   permissionRoutes);
 
 app.get('/', (req, res) => res.json({
   success: true,

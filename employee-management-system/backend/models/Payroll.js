@@ -15,6 +15,8 @@ const payrollSchema = new mongoose.Schema({
   tax:          { type: Number, default: 0 },
   insurance:    { type: Number, default: 0 },
   otherDeductions: { type: Number, default: 0 },
+  overtimeEarnings:  { type: Number, default: 0 },  // additive to gross pay (Req 9.3)
+  advanceDeductions: { type: Number, default: 0 },  // additive to deductions (Req 11.5)
   paymentDate:  { type: String, default: null },
   status:       { type: String, enum: ['pending', 'approved', 'paid'], default: 'pending', index: true },
 }, { timestamps: true });
