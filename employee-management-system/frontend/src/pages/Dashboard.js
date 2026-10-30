@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -19,9 +19,6 @@ import {
   LEAVE_STATS, DEPT_DISTRIBUTION, PAYROLL_OVERVIEW,
   RECENT_ACTIVITIES, UPCOMING_EVENTS
 } from '../data/sampleData';
-import AIInsightsPanel from '../components/ai/AIInsightsPanel';
-import AIChatPanel from '../components/ai/AIChatPanel';
-import { useAI } from '../hooks/useAI';
 
 const StatCard = ({ icon: Icon, label, value, change, changeType, color, bg }) => (
   <div className="stat-card">
@@ -60,34 +57,6 @@ const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const pendingLeave = leaveRequests.filter(r => r.status === 'pending');
-
-  // ── AI state ──────────────────────────────────────────────────────────────
-  const ai = useAI(user);
-  const [aiInsights, setAiInsights] = useState([]);
-  const [insightsLoaded, setInsightsLoaded] = useState(false);
-
-  const buildContext = useCallback(() => ({
-    employees,
-    attendance: attendanceData,
-    leave: leaveRequests,
-    payroll: payrollData,
-    performance: performanceReviews,
-  }), [employees, attendanceData, leaveRequests, payrollData, performanceReviews]);
-
-  const loadInsights = useCallback(async () => {
-    const result = await ai.adminInsights(buildContext());
-    if (result?.success && result.insights) {
-      setAiInsights(result.insights);
-      setInsightsLoaded(true);
-    }
-  }, [ai, buildContext]);
-
-  const handleAdminChat = useCallback(async (message) => {
-    const result = await ai.adminChat(message, buildContext());
-    if (!result) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
-    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable. Please try again.';
-    return result.answer || 'I could not generate a response. Please try rephrasing your question.';
-  }, [ai, buildContext]);
 
   const today = new Date().toISOString().split('T')[0];
   const todayAttendance = attendanceData.filter(a => a.date === today);
@@ -135,27 +104,6 @@ const Dashboard = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 24 }}>
         {stats.map(s => <StatCard key={s.label} {...s} />)}
       </div>
-
-      {/* AI Insights + Ask AI */}
-      <AIInsightsPanel
-        insights={aiInsights}
-        loading={ai.loading && !insightsLoaded}
-        error={ai.error}
-        onRefresh={loadInsights}
-        title="🤖 AI HR Insights"
-      />
-      <AIChatPanel
-        title="Ask AI — HR Assistant"
-        onSend={handleAdminChat}
-        loading={ai.loading}
-        suggestions={[
-          'How many employees are currently active?',
-          'Which department has the highest absenteeism?',
-          'How many leave requests are pending?',
-          'Give me a summary of this month\'s attendance.',
-        ]}
-        placeholder="Ask about employees, attendance, leave, payroll..."
-      />
 
       {/* Charts Row 1 */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 24 }}>

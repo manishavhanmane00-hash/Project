@@ -2,6 +2,9 @@ const mongoose = require('mongoose');
 
 const employeeSchema = new mongoose.Schema(
   {
+    // Unique, human-readable employee ID (e.g. EMP-0001)
+    employeeId:   { type: String, unique: true, sparse: true, trim: true, index: true },
+
     // Core identity
     name:         { type: String, required: [true, 'Employee name is required'], trim: true },
     firstName:    { type: String, default: '', trim: true },
@@ -20,15 +23,15 @@ const employeeSchema = new mongoose.Schema(
     postal:       { type: String, default: '' },
 
     // Employment
-    department:   { type: String, required: [true, 'Department is required'], trim: true },
-    designation:  { type: String, default: '', trim: true },
+    department:   { type: String, required: [true, 'Department is required'], trim: true, index: true },
+    designation:  { type: String, default: '', trim: true, index: true },
     position:     { type: String, default: '', trim: true }, // alias for designation
     manager:      { type: String, default: '' },
     joiningDate:  { type: String, default: '' },
     dateOfJoining:{ type: Date,   default: null },
-    employmentType: { type: String, default: 'Full-time' },
+    employmentType: { type: String, default: 'Full-time', enum: ['Full-time', 'Part-time', 'Contract', 'Intern'] },
     workLocation: { type: String, default: '' },
-    status:       { type: String, default: 'active', index: true },
+    status:       { type: String, default: 'active', enum: ['active', 'inactive', 'on-leave'], index: true },
     probation:    { type: String, default: '' },
 
     // Compensation

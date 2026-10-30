@@ -1,27 +1,14 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Download, CheckCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { useAuth } from '../../context/AuthContext';
 import Avatar from '../../components/shared/Avatar';
 import Badge from '../../components/shared/Badge';
 import { formatINR } from '../../utils/currency';
-import AIChatPanel from '../../components/ai/AIChatPanel';
-import { useAI } from '../../hooks/useAI';
 import toast from 'react-hot-toast';
 
 const PayrollHistory = () => {
   const { payrollData, approvePayroll } = useApp();
-  const { user } = useAuth();
   const [filter, setFilter] = useState('');
-
-  // AI
-  const ai = useAI(user);
-  const handlePayrollAI = useCallback(async (message) => {
-    const result = await ai.adminChat(message, { employees: [], attendance: [], leave: [], payroll: payrollData, performance: [] });
-    if (!result) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
-    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable. Please try again.';
-    return result.answer || 'I could not generate a response. Please try rephrasing your question.';
-  }, [ai, payrollData]);
 
   const pending  = payrollData.filter(p => p.status === 'pending').length;
   const approved = payrollData.filter(p => p.status === 'approved').length;
@@ -138,21 +125,6 @@ const PayrollHistory = () => {
         </div>
       )}
 
-      {/* AI Payroll Insights */}
-      <div style={{ marginTop: 24 }}>
-        <AIChatPanel
-          title="AI Payroll Insights"
-          onSend={handlePayrollAI}
-          loading={ai.loading}
-          suggestions={[
-            'What is the total payroll this month?',
-            'Which department has the highest payroll?',
-            'Summarize bonuses and deductions',
-            'Show payroll trends',
-          ]}
-          placeholder="Ask about payroll totals, department distribution, bonuses..."
-        />
-      </div>
     </div>
   );
 };

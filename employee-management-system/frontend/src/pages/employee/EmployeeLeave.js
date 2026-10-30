@@ -1,11 +1,9 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, Calendar, Eye } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Calendar, Eye, XCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import Badge from '../../components/shared/Badge';
 import Modal from '../../components/shared/Modal';
-import AIChatPanel from '../../components/ai/AIChatPanel';
-import { useAI } from '../../hooks/useAI';
 import { LEAVE_TYPES } from '../../data/sampleData';
 import toast from 'react-hot-toast';
 
@@ -21,26 +19,10 @@ const ProgressBar = ({ used, total, color = 'var(--primary)' }) => {
 };
 
 const EmployeeLeave = () => {
-  const { leaveRequests, addLeaveRequest } = useApp();
+  const { leaveRequests, addLeaveRequest, cancelLeave } = useApp();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [viewRequest, setViewRequest] = useState(null);
-
-  // AI Policy Assistant
-  const ai = useAI(user);
-  const handleLeaveAI = useCallback(async (message) => {
-    const myLeave = leaveRequests.filter(r => r.employeeId === user?.id || r.email === user?.email);
-    const result = await ai.employeeChat(message, {
-      myAttendance: [],
-      myLeave,
-      myPayroll: [],
-      myPerformance: [],
-      userProfile: { department: user?.department },
-    });
-    if (!result) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
-    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable. Please try again.';
-    return result.answer || 'I could not generate a response. Please try rephrasing your question.';
-  }, [ai, leaveRequests, user]);
 
   const myRequests = useMemo(() =>
     leaveRequests.filter(r => r.employeeId === user?.id || r.email === user?.email)
@@ -324,9 +306,20 @@ const EmployeeLeave = () => {
                   <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{r.appliedDate || '—'}</td>
                   <td><Badge status={r.status} /></td>
                   <td>
-                    <button className="btn-icon primary" onClick={() => setViewRequest(r)} title="View Details">
-                      <Eye size={13} />
-                    </button>
+                    <div className="table-actions">
+                      <button className="btn-icon primary" onClick={() => setViewRequest(r)} title="View Details">
+                        <Eye size={13} />
+                      </button>
+                      {r.status === 'pending' && (
+                        <button className="btn-icon danger" title="Cancel Request"
+                          onClick={async () => {
+                            try { await cancelLeave(r._id || r.id); toast.success('Leave request cancelled'); }
+                            catch (err) { toast.error(err.message || 'Failed to cancel'); }
+                          }}>
+                          <XCircle size={13} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -405,19 +398,6 @@ const EmployeeLeave = () => {
         </div>
       </div>
 
-      {/* AI Policy & Leave Assistant */}
-      <AIChatPanel
-        title="AI Leave & Policy Assistant"
-        onSend={handleLeaveAI}
-        loading={ai.loading}
-        suggestions={[
-          'How many leaves do I have remaining?',
-          'What is the company leave policy?',
-          'How do I apply for sick leave?',
-          'Why might my leave request be pending?',
-        ]}
-        placeholder="Ask about your leave balance, policies, or how to apply..."
-      />
     </div>
   );
 };

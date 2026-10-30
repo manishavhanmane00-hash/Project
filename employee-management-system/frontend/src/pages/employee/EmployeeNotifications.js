@@ -1,9 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Bell, Check, CheckCheck, Trash2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { useAuth } from '../../context/AuthContext';
-import AIChatPanel from '../../components/ai/AIChatPanel';
-import { useAI } from '../../hooks/useAI';
 import toast from 'react-hot-toast';
 
 const NOTIF_ICONS = {
@@ -17,25 +14,7 @@ const NOTIF_ICONS = {
 
 const EmployeeNotifications = () => {
   const { notifications, markNotifRead, markAllNotifsRead, deleteNotif } = useApp();
-  const { user } = useAuth();
   const [filter, setFilter] = useState('all');
-
-  const ai = useAI(user);
-  const handleNotifAI = useCallback(async (message) => {
-    const notifContext = (notifications || []).slice(0, 20).map(n => ({
-      type: n.type,
-      message: n.message,
-      read: n.isRead || n.read,
-      date: n.createdAt,
-    }));
-    const result = await ai.employeeChat(message, {
-      myAttendance: [], myLeave: [], myPayroll: [], myPerformance: [],
-      notifications: notifContext, userProfile: {},
-    });
-    if (!result) return 'AI Assistant is temporarily unavailable.';
-    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable.';
-    return result.answer || 'I could not generate a response.';
-  }, [ai, notifications]);
 
   const filtered = (notifications || []).filter(n => {
     const read = n.isRead || n.read;
@@ -193,21 +172,6 @@ const EmployeeNotifications = () => {
         </div>
       )}
 
-      {/* AI Notification Assistant */}
-      <div style={{ marginTop: 24 }}>
-        <AIChatPanel
-          title="AI Notification Summary"
-          onSend={handleNotifAI}
-          loading={ai.loading}
-          suggestions={[
-            'Summarize my recent notifications',
-            'What important updates do I have?',
-            'Is my leave request approved?',
-            'Do I have any payroll notifications?',
-          ]}
-          placeholder="Ask about your notifications..."
-        />
-      </div>
     </div>
   );
 };

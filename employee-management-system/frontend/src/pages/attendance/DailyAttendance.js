@@ -1,12 +1,10 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Calendar, Download, CheckCircle, XCircle, Clock, Edit2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import Badge from '../../components/shared/Badge';
 import Avatar from '../../components/shared/Avatar';
 import Modal from '../../components/shared/Modal';
-import AIChatPanel from '../../components/ai/AIChatPanel';
-import { useAI } from '../../hooks/useAI';
 import toast from 'react-hot-toast';
 
 const TODAY = new Date().toISOString().split('T')[0];
@@ -18,7 +16,7 @@ const AttendanceModal = ({ employee, record, onSave, onClose }) => {
     <form onSubmit={e => { e.preventDefault(); onSave({ ...form, employeeId: employee._id, name: employee.name, email: employee.email || '', department: employee.department, date: TODAY }); }}>
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
         <Avatar name={employee.name} size="md" />
-        <div><div style={{ fontWeight: 600 }}>{employee.name}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{employee.id} · {employee.department}</div></div>
+        <div><div style={{ fontWeight: 600 }}>{employee.name}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{employee.employeeId || String(employee._id).slice(-6)} · {employee.department}</div></div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
         <div className="form-group">
@@ -62,15 +60,6 @@ const DailyAttendance = () => {
   const [selectedDate, setSelectedDate] = useState(TODAY);
   const [deptFilter, setDeptFilter] = useState('');
   const [editEmp, setEditEmp] = useState(null);
-
-  // AI
-  const ai = useAI(user);
-  const handleAttendanceAI = useCallback(async (message) => {
-    const chatResult = await ai.adminChat(message, { employees, attendance: attendanceData, leave: [], payroll: [], performance: [] });
-    if (!chatResult) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
-    if (!chatResult.success) return chatResult.message || 'AI Assistant is temporarily unavailable. Please try again.';
-    return chatResult.answer || 'I could not generate a response. Please try rephrasing your question.';
-  }, [ai, attendanceData, employees]);
 
   const dayAttendance = useMemo(() =>
     attendanceData.filter(a => a.date === selectedDate),
@@ -170,7 +159,7 @@ const DailyAttendance = () => {
           </div>
           <select className="form-control form-select" style={{ width: 180 }} value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
             <option value="">All Departments</option>
-            {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+            {departments.map(d => <option key={d._id || d.id} value={d.name}>{d.name}</option>)}
           </select>
         </div>
       </div>
@@ -180,7 +169,7 @@ const DailyAttendance = () => {
         <table className="table">
           <thead>
             <tr>
-              <th>Employee</th><th>ID</th><th>Department</th><th>Check In</th><th>Check Out</th>
+              <th>Employee</th><th>Emp ID</th><th>Department</th><th>Check In</th><th>Check Out</th>
               <th>Hours</th><th>Status</th><th>Late</th><th>Overtime</th><th>Action</th>
             </tr>
           </thead>
@@ -195,7 +184,7 @@ const DailyAttendance = () => {
                       <span style={{ fontWeight: 500, fontSize: '0.875rem' }}>{emp.name}</span>
                     </div>
                   </td>
-                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{String(emp._id).slice(-6).toUpperCase()}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{emp.employeeId || String(emp._id).slice(-6).toUpperCase()}</td>
                   <td style={{ fontSize: '0.875rem' }}>{emp.department}</td>
                   <td style={{ fontSize: '0.875rem' }}>{rec?.checkIn || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                   <td style={{ fontSize: '0.875rem' }}>{rec?.checkOut || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
@@ -220,22 +209,6 @@ const DailyAttendance = () => {
           <AttendanceModal employee={editEmp.emp} record={editEmp.record} onSave={handleSave} onClose={() => setEditEmp(null)} />
         </Modal>
       )}
-
-      {/* AI Attendance Analysis */}
-      <div style={{ marginTop: 24 }}>
-        <AIChatPanel
-          title="AI Attendance Analysis"
-          onSend={handleAttendanceAI}
-          loading={ai.loading}
-          suggestions={[
-            'Analyze attendance for this period',
-            'Which department has the most absences?',
-            'How is the overall attendance rate?',
-            'Show overtime trends',
-          ]}
-          placeholder="Ask about attendance patterns, absenteeism, overtime..."
-        />
-      </div>
     </div>
   );
 };

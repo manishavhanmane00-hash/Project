@@ -42,7 +42,12 @@ const AddEmployee = () => {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(() => {
     if (existingEmp) {
-      return { ...initialForm, ...existingEmp, firstName: existingEmp.firstName || existingEmp.name?.split(' ')[0] || '', lastName: existingEmp.lastName || existingEmp.name?.split(' ')[1] || '' };
+      return {
+        ...initialForm,
+        ...existingEmp,
+        firstName: existingEmp.firstName || existingEmp.name?.split(' ')[0] || '',
+        lastName: existingEmp.lastName || existingEmp.name?.split(' ').slice(1).join(' ') || '',
+      };
     }
     return initialForm;
   });
@@ -205,16 +210,20 @@ const AddEmployee = () => {
       <FormField label="Department" required error={errors.department}>
         <select className={`form-control form-select ${errors.department ? 'error' : ''}`} value={form.department} onChange={e => set('department', e.target.value)}>
           <option value="">Select department</option>
-          {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+          {departments.map(d => <option key={d._id || d.id || d.name} value={d.name}>{d.name}</option>)}
         </select>
       </FormField>
       <FormField label="Designation / Role" required error={errors.designation}>
-        <select className={`form-control form-select ${errors.designation ? 'error' : ''}`} value={form.designation} onChange={e => set('designation', e.target.value)}>
-          <option value="">Select designation</option>
-          {designations.filter(d => !form.department || d.department === form.department).map(d => (
-            <option key={d.id} value={d.name}>{d.name}</option>
-          ))}
-        </select>
+        <input
+          className={`form-control ${errors.designation ? 'error' : ''}`}
+          value={form.designation}
+          onChange={e => set('designation', e.target.value)}
+          placeholder="e.g. Software Engineer"
+          list="designation-list"
+        />
+        <datalist id="designation-list">
+          {designations.map((d, i) => <option key={i} value={typeof d === 'string' ? d : d.name} />)}
+        </datalist>
       </FormField>
       <FormField label="Manager / Reporting To">
         <input className="form-control" value={form.manager} onChange={e => set('manager', e.target.value)} placeholder="Manager name" />

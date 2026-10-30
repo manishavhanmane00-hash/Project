@@ -19,7 +19,7 @@ const RoleForm = ({ initial, departments, onSave, onClose }) => {
           <label className="form-label">Department <span className="required">*</span></label>
           <select className="form-control form-select" required value={form.department} onChange={e => set('department', e.target.value)}>
             <option value="">Select department</option>
-            {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+            {departments.map(d => <option key={d._id || d.id} value={d.name}>{d.name}</option>)}
           </select>
         </div>
       </div>
@@ -99,7 +99,7 @@ const Roles = () => {
           </div>
           <select className="form-control form-select" style={{ width: 180 }} value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
             <option value="">All Departments</option>
-            {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+            {departments.map(d => <option key={d._id || d.id} value={d.name}>{d.name}</option>)}
           </select>
         </div>
       </div>

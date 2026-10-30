@@ -32,7 +32,11 @@ const EmployeeList = () => {
     let list = [...employees];
     if (search) {
       const s = search.toLowerCase();
-      list = list.filter(e => e.name.toLowerCase().includes(s) || e.email.toLowerCase().includes(s) || e.id.toLowerCase().includes(s));
+      list = list.filter(e =>
+        e.name?.toLowerCase().includes(s) ||
+        e.email?.toLowerCase().includes(s) ||
+        (e.employeeId || '').toLowerCase().includes(s)
+      );
     }
     if (deptFilter) list = list.filter(e => e.department === deptFilter);
     if (statusFilter) list = list.filter(e => e.status === statusFilter);
@@ -66,8 +70,8 @@ const EmployeeList = () => {
   };
 
   const handleExport = () => {
-    const csv = ['ID,Name,Email,Phone,Department,Designation,Type,Status'].concat(
-      filtered.map(e => `${e.id},${e.name},${e.email},${e.phone},${e.department},${e.designation},${e.employmentType},${e.status}`)
+    const csv = ['EmpID,Name,Email,Phone,Department,Designation,Type,Status'].concat(
+      filtered.map(e => `${e.employeeId || ''},${e.name},${e.email},${e.phone},${e.department},${e.designation},${e.employmentType},${e.status}`)
     ).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -108,7 +112,7 @@ const EmployeeList = () => {
           <select className="form-control form-select" style={{ width: 160 }} value={deptFilter}
             onChange={e => { setDeptFilter(e.target.value); setPage(1); }}>
             <option value="">All Departments</option>
-            {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+            {departments.map(d => <option key={d._id || d.id} value={d.name}>{d.name}</option>)}
           </select>
           <select className="form-control form-select" style={{ width: 140 }} value={statusFilter}
             onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
@@ -138,7 +142,7 @@ const EmployeeList = () => {
         <table className="table">
           <thead>
             <tr>
-              <th className="sortable" onClick={() => handleSort('id')}>ID <SortIcon col="id" /></th>
+              <th className="sortable" onClick={() => handleSort('employeeId')}>Emp ID <SortIcon col="employeeId" /></th>
               <th className="sortable" onClick={() => handleSort('name')}>Employee <SortIcon col="name" /></th>
               <th>Contact</th>
               <th className="sortable" onClick={() => handleSort('department')}>Department <SortIcon col="department" /></th>
@@ -160,7 +164,7 @@ const EmployeeList = () => {
               </td></tr>
             ) : paginated.map(emp => (
               <tr key={emp._id}>
-                <td><span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{emp.id}</span></td>
+                <td><span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{emp.employeeId || emp._id?.slice(-6)}</span></td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <Avatar name={emp.name} size="sm" />

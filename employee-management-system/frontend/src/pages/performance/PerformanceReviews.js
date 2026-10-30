@@ -1,12 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Plus, Star, Eye, Edit2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../../components/shared/Avatar';
 import Badge from '../../components/shared/Badge';
 import Modal from '../../components/shared/Modal';
-import AIChatPanel from '../../components/ai/AIChatPanel';
-import { useAI } from '../../hooks/useAI';
 import toast from 'react-hot-toast';
 
 const RATINGS = [
@@ -89,15 +87,6 @@ const PerformanceReviews = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [viewReview, setViewReview] = useState(null);
   const [saving, setSaving] = useState(false);
-
-  // AI
-  const ai = useAI(user);
-  const handlePerformanceAI = useCallback(async (message) => {
-    const result = await ai.adminChat(message, { employees, attendance: [], leave: [], payroll: [], performance: performanceReviews });
-    if (!result) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
-    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable. Please try again.';
-    return result.answer || 'I could not generate a response. Please try rephrasing your question.';
-  }, [ai, performanceReviews, employees]);
 
   const avgRating = performanceReviews.length > 0
     ? (performanceReviews.reduce((s, r) => s + r.overallRating, 0) / performanceReviews.length).toFixed(1)
@@ -216,22 +205,6 @@ const PerformanceReviews = () => {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New Performance Review" size="lg">
         <ReviewForm employees={employees} onSave={handleSave} onClose={() => setModalOpen(false)} currentUser={user} saving={saving} />
       </Modal>
-
-      {/* AI Performance Summary */}
-      <div style={{ marginTop: 24 }}>
-        <AIChatPanel
-          title="AI Performance Summary"
-          onSend={handlePerformanceAI}
-          loading={ai.loading}
-          suggestions={[
-            'What is the average performance rating?',
-            'Which department performs best?',
-            'Who needs improvement?',
-            'Summarize performance trends',
-          ]}
-          placeholder="Ask about performance ratings, trends, department comparisons..."
-        />
-      </div>
     </div>
   );
 };

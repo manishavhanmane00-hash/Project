@@ -80,7 +80,7 @@ const AttendanceHistory = () => {
           </div>
           <select className="form-control form-select" style={{ width: 160 }} value={deptFilter} onChange={e => { setDeptFilter(e.target.value); setPage(1); }}>
             <option value="">All Departments</option>
-            {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+            {departments.map(d => <option key={d._id || d.id} value={d.name}>{d.name}</option>)}
           </select>
           <select className="form-control form-select" style={{ width: 140 }} value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
             <option value="">All Status</option>

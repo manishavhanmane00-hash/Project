@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { employeeAPI, attendanceAPI, leaveAPI, payrollAPI, performanceAPI, notificationAPI } from '../services/api';
-import { DEPARTMENTS, DESIGNATIONS } from '../data/sampleData';
+import {
+  employeeAPI, attendanceAPI, leaveAPI, payrollAPI, performanceAPI,
+  notificationAPI, departmentAPI, taskAPI, reportAPI,
+} from '../services/api';
 import { useAuth } from './AuthContext';
 
 const AppContext = createContext(null);
@@ -18,18 +20,17 @@ export const AppProvider = ({ children }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  // ── Master data (static) ───────────────────────────────────────────────────
-  const [departments,  setDepartments]  = useState(DEPARTMENTS);
-  const [designations, setDesignations] = useState(DESIGNATIONS);
-
   // ── DB-backed data ─────────────────────────────────────────────────────────
   const [employees,          setEmployees]          = useState([]);
+  const [departments,        setDepartments]        = useState([]);
   const [attendanceData,     setAttendanceData]     = useState([]);
   const [leaveRequests,      setLeaveRequests]      = useState([]);
   const [leaveBalances,      setLeaveBalances]      = useState([]);
+  const [tasks,              setTasks]              = useState([]);
   const [payrollData,        setPayrollData]        = useState([]);
   const [performanceReviews, setPerformanceReviews] = useState([]);
   const [notifications,      setNotifications]      = useState([]);
+  const [dashboardStats,     setDashboardStats]     = useState(null);
 
   const currency = { code: 'INR', symbol: '₹', locale: 'en-IN' };
   const toggleSidebar = () => setSidebarCollapsed(c => !c);
@@ -40,6 +41,13 @@ export const AppProvider = ({ children }) => {
       const { data } = await employeeAPI.getAll();
       if (data.success) setEmployees(data.data);
     } catch { /* backend not running */ }
+  }, []);
+
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const { data } = await departmentAPI.getAll();
+      if (data.success) setDepartments(data.data);
+    } catch { }
   }, []);
 
   const fetchAttendance = useCallback(async () => {
@@ -53,6 +61,20 @@ export const AppProvider = ({ children }) => {
     try {
       const { data } = await leaveAPI.getAll();
       if (data.success) setLeaveRequests(data.data);
+    } catch { }
+  }, []);
+
+  const fetchLeaveBalances = useCallback(async () => {
+    try {
+      const { data } = await leaveAPI.getBalance();
+      if (data.success) setLeaveBalances(data.data);
+    } catch { }
+  }, []);
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      const { data } = await taskAPI.getAll();
+      if (data.success) setTasks(data.data);
     } catch { }
   }, []);
 
@@ -77,20 +99,32 @@ export const AppProvider = ({ children }) => {
     } catch { }
   }, []);
 
+  const fetchDashboardStats = useCallback(async () => {
+    try {
+      const { data } = await reportAPI.dashboard();
+      if (data.success) setDashboardStats(data.data);
+    } catch { }
+  }, []);
+
   // Load all data when user logs in
   useEffect(() => {
     if (!user) {
-      setEmployees([]); setAttendanceData([]); setLeaveRequests([]);
-      setPayrollData([]); setPerformanceReviews([]); setNotifications([]);
+      setEmployees([]); setDepartments([]); setAttendanceData([]); setLeaveRequests([]);
+      setPayrollData([]); setPerformanceReviews([]); setNotifications([]); setTasks([]);
+      setLeaveBalances([]); setDashboardStats(null);
       return;
     }
     fetchEmployees();
+    fetchDepartments();
     fetchAttendance();
     fetchLeave();
+    fetchLeaveBalances();
+    fetchTasks();
     fetchPayroll();
     fetchPerformance();
     fetchNotifications();
-  }, [user, fetchEmployees, fetchAttendance, fetchLeave, fetchPayroll, fetchPerformance, fetchNotifications]);
+    fetchDashboardStats();
+  }, [user, fetchEmployees, fetchDepartments, fetchAttendance, fetchLeave, fetchLeaveBalances, fetchTasks, fetchPayroll, fetchPerformance, fetchNotifications, fetchDashboardStats]);
 
   // ── Employee CRUD ──────────────────────────────────────────────────────────
   const addEmployee = async (emp) => {
@@ -110,10 +144,30 @@ export const AppProvider = ({ children }) => {
     setEmployees(prev => prev.filter(e => e._id !== id));
   };
 
-  // ── Department CRUD (static for now) ──────────────────────────────────────
-  const addDepartment    = (dept) => setDepartments(prev => [...prev, { ...dept, id: Date.now() }]);
-  const updateDepartment = (id, data) => setDepartments(prev => prev.map(d => d.id === id ? { ...d, ...data } : d));
-  const deleteDepartment = (id) => setDepartments(prev => prev.filter(d => d.id !== id));
+  const setEmployeeStatus = async (id, status) => {
+    const { data } = await employeeAPI.setStatus(id, { status });
+    if (data.success) { setEmployees(prev => prev.map(e => e._id === id ? data.data : e)); return data.data; }
+    throw new Error(data.message);
+  };
+
+  // ── Department CRUD ──────────────────────────────────────────────────────────
+  const addDepartment = async (dept) => {
+    const { data } = await departmentAPI.create(dept);
+    if (data.success) { setDepartments(prev => [...prev, data.data]); return data.data; }
+    throw new Error(data.message);
+  };
+
+  const updateDepartment = async (id, updates) => {
+    const { data } = await departmentAPI.update(id, updates);
+    if (data.success) { setDepartments(prev => prev.map(d => d._id === id ? data.data : d)); return data.data; }
+    throw new Error(data.message);
+  };
+
+  const deleteDepartment = async (id) => {
+    const { data } = await departmentAPI.delete(id);
+    if (data.success) { setDepartments(prev => prev.filter(d => d._id !== id)); return data.data; }
+    throw new Error(data.message);
+  };
 
   // ── Attendance ─────────────────────────────────────────────────────────────
   const markAttendance = async (record) => {
@@ -130,7 +184,6 @@ export const AppProvider = ({ children }) => {
     } catch { }
   };
 
-  // Employee self-service: create or update own attendance record
   const selfMarkAttendance = async (record) => {
     const { data } = await attendanceAPI.selfMark(record);
     if (data.success) {
@@ -190,12 +243,40 @@ export const AppProvider = ({ children }) => {
     throw new Error(data.message);
   };
 
+  const cancelLeave = async (id) => {
+    const { data } = await leaveAPI.cancel(id);
+    if (data.success) {
+      setLeaveRequests(prev => prev.map(r => (r._id === id || r.id === id) ? data.data : r));
+      return data.data;
+    }
+    throw new Error(data.message);
+  };
+
+  // ── Tasks ──────────────────────────────────────────────────────────────────
+  const addTask = async (task) => {
+    const { data } = await taskAPI.create(task);
+    if (data.success) { setTasks(prev => [data.data, ...prev]); return data.data; }
+    throw new Error(data.message);
+  };
+
+  const updateTask = async (id, updates) => {
+    const { data } = await taskAPI.update(id, updates);
+    if (data.success) { setTasks(prev => prev.map(t => t._id === id ? data.data : t)); return data.data; }
+    throw new Error(data.message);
+  };
+
+  const deleteTask = async (id) => {
+    const { data } = await taskAPI.delete(id);
+    if (data.success) { setTasks(prev => prev.filter(t => t._id !== id)); return data.data; }
+    throw new Error(data.message);
+  };
+
   // ── Payroll ────────────────────────────────────────────────────────────────
   const generatePayroll = async (dataArr) => {
     const payload = Array.isArray(dataArr) ? dataArr : [dataArr];
     const { data } = await payrollAPI.generate(payload);
     if (data.success) {
-      await fetchPayroll(); // refetch to get accurate state
+      await fetchPayroll();
       return data.data;
     }
     throw new Error(data.message);
@@ -222,7 +303,6 @@ export const AppProvider = ({ children }) => {
 
   // ── Notifications ──────────────────────────────────────────────────────────
   const addNotification = async (notif) => {
-    // Optimistic local add; backend creates it via leave/payroll controllers
     const newNotif = { ...notif, _id: Date.now(), id: Date.now(), createdAt: new Date().toISOString(), isRead: false, read: false };
     setNotifications(prev => [newNotif, ...prev]);
   };
@@ -242,21 +322,27 @@ export const AppProvider = ({ children }) => {
     setNotifications(prev => prev.filter(n => n._id !== id && n.id !== id));
   };
 
+  // Derived designations from employees (for filter dropdowns)
+  const designations = [...new Set(employees.map(e => e.designation).filter(Boolean))];
+
   const value = {
     sidebarCollapsed, toggleSidebar, setSidebarCollapsed,
     mobileSidebarOpen, setMobileSidebarOpen,
     currency,
-    employees,    addEmployee,    updateEmployee,    deleteEmployee,
-    departments,  addDepartment,  updateDepartment,  deleteDepartment,
-    designations, setDesignations,
+    employees,    addEmployee,    updateEmployee,    deleteEmployee,    setEmployeeStatus,
+    departments,  addDepartment,  updateDepartment,  deleteDepartment,  fetchDepartments,
+    designations,
     attendanceData, markAttendance, selfMarkAttendance, doCheckIn, doCheckOut,
-    leaveRequests,  addLeaveRequest, updateLeaveStatus,
-    leaveBalances,  setLeaveBalances,
+    leaveRequests,  addLeaveRequest, updateLeaveStatus, cancelLeave,
+    leaveBalances,  setLeaveBalances, fetchLeaveBalances,
+    tasks,          addTask, updateTask, deleteTask, fetchTasks,
     payrollData,    generatePayroll, approvePayroll,
     performanceReviews, setPerformanceReviews, savePerformanceReview,
     notifications, addNotification, markNotifRead, markAllNotifsRead, deleteNotif,
+    dashboardStats, fetchDashboardStats,
     // Refresh helpers
-    fetchEmployees, fetchAttendance, fetchLeave, fetchPayroll, fetchPerformance, fetchNotifications,
+    fetchEmployees, fetchDepartments, fetchAttendance, fetchLeave, fetchLeaveBalances,
+    fetchPayroll, fetchPerformance, fetchNotifications, fetchTasks, fetchDashboardStats,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

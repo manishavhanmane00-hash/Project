@@ -13,13 +13,6 @@ const loadGoogleScript = () => {
   document.head.appendChild(script);
 };
 
-const decodeJwt = (token) => {
-  try {
-    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(atob(base64));
-  } catch { return null; }
-};
-
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
@@ -82,24 +75,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ── Google Sign-In ─────────────────────────────────────────────────────────
+  // The backend verifies the Google ID token server-side with google-auth-library.
+  // We only forward the `credential` (ID token) — never trust client-decoded identity.
   const loginWithGoogle = async (credentialResponse) => {
     setLoading(true);
     try {
-      const payload = decodeJwt(credentialResponse?.credential);
-      if (!payload?.email) {
+      const credential = credentialResponse?.credential;
+      if (!credential) {
         setLoading(false);
-        return { success: false, error: 'Could not read Google account information.' };
+        return { success: false, error: 'Google did not return a credential. Please try again.' };
       }
-      if (payload.exp && payload.exp * 1000 < Date.now()) {
-        setLoading(false);
-        return { success: false, error: 'Google session expired. Please sign in again.' };
-      }
-      const res = await authAPI.googleLogin({
-        email: payload.email,
-        name: payload.name,
-        googleId: payload.sub,
-        avatar: payload.picture || null,
-      });
+
+      const res = await authAPI.googleLogin({ credential });
+
       if (res.data.success) {
         persistUser(res.data.user, res.data.token);
         setLoading(false);
@@ -109,7 +97,9 @@ export const AuthProvider = ({ children }) => {
       return { success: false, error: res.data.message };
     } catch (err) {
       setLoading(false);
-      return { success: false, error: err.response?.data?.message || 'Google sign-in failed.' };
+      const msg = err.response?.data?.message;
+      // 401 → invalid/expired token; 403 → deactivated/unverified; 409 → email conflict
+      return { success: false, error: msg || 'Google sign-in failed. Please try again.' };
     }
   };
 

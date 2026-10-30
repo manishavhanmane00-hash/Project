@@ -96,7 +96,7 @@ const GeneratePayroll = () => {
               <label className="form-label">Department</label>
               <select className="form-control form-select" value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
                 <option value="">All Departments</option>
-                {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                {departments.map(d => <option key={d._id || d.id} value={d.name}>{d.name}</option>)}
               </select>
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>

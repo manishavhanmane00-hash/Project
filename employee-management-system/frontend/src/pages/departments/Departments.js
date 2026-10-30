@@ -43,26 +43,41 @@ const Departments = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [deleteItem, setDeleteItem] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   const filtered = departments.filter(d => d.name.toLowerCase().includes(search.toLowerCase()));
   const empCount = (name) => employees.filter(e => e.department === name).length;
 
-  const handleSave = (form) => {
-    if (editItem) {
-      updateDepartment(editItem.id, form);
-      toast.success('Department updated');
-    } else {
-      addDepartment({ ...form, employeeCount: 0 });
-      toast.success('Department created');
+  const handleSave = async (form) => {
+    setSaving(true);
+    try {
+      if (editItem) {
+        await updateDepartment(editItem._id, form);
+        toast.success('Department updated');
+      } else {
+        await addDepartment(form);
+        toast.success('Department created');
+      }
+      setModalOpen(false);
+      setEditItem(null);
+    } catch (err) {
+      toast.error(err.message || 'Failed to save department');
+    } finally {
+      setSaving(false);
     }
-    setModalOpen(false);
-    setEditItem(null);
   };
 
-  const handleDelete = () => {
-    deleteDepartment(deleteItem.id);
-    toast.success('Department deleted');
-    setDeleteItem(null);
+  const handleDelete = async () => {
+    setSaving(true);
+    try {
+      await deleteDepartment(deleteItem._id);
+      toast.success('Department deleted');
+      setDeleteItem(null);
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete department');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -89,7 +104,7 @@ const Departments = () => {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
         {filtered.map(dept => (
-          <div key={dept.id} className="card" style={{ padding: 20 }}>
+          <div key={dept._id} className="card" style={{ padding: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Building2 size={22} color="var(--primary)" />
@@ -103,7 +118,7 @@ const Departments = () => {
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 }}>{dept.description}</p>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                <Users size={14} /> {empCount(dept.name)} employees
+                <Users size={14} /> {dept.employeeCount ?? empCount(dept.name)} employees
               </div>
               <Badge status={dept.status} />
             </div>
@@ -117,11 +132,11 @@ const Departments = () => {
       </div>
 
       <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditItem(null); }} title={editItem ? 'Edit Department' : 'Add Department'} size="md">
-        <DeptForm initial={editItem} onSave={handleSave} onClose={() => { setModalOpen(false); setEditItem(null); }} />
+        <DeptForm initial={editItem} onSave={handleSave} onClose={() => { setModalOpen(false); setEditItem(null); }} saving={saving} />
       </Modal>
 
-      <ConfirmModal open={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete}
-        title="Delete Department" message={`Delete "${deleteItem?.name}" department? This action cannot be undone.`} confirmLabel="Delete" />
+      <ConfirmModal open={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} loading={saving}
+        title="Delete Department" message={`Delete "${deleteItem?.name}" department? This cannot be undone. Departments with employees assigned cannot be deleted.`} confirmLabel="Delete" />
     </div>
   );
 };

@@ -168,9 +168,21 @@ const SubNavItem = ({ item }) => {
 };
 
 const Sidebar = () => {
-  const { sidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen } = useApp();
+  const { sidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen, leaveRequests } = useApp();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const pendingLeaveCount = leaveRequests.filter(r => r.status === 'pending').length;
+
+  // Inject live badge count for Leave Management
+  const navItemsWithBadge = NAV_ITEMS.map(section => ({
+    ...section,
+    items: section.items.map(item =>
+      item.path === '/leave'
+        ? { ...item, badge: pendingLeaveCount || undefined }
+        : item
+    ),
+  }));
 
   const handleLogout = () => {
     logout();
@@ -200,7 +212,7 @@ const Sidebar = () => {
 
         {/* Navigation */}
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map(section => (
+          {navItemsWithBadge.map(section => (
             <div key={section.label} className="nav-section">
               {!sidebarCollapsed && (
                 <div className="nav-section-label">{section.label}</div>

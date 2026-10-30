@@ -60,7 +60,7 @@ const EmployeeSidebar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const unreadCount = (notifications || []).filter(n => !n.read).length;
+  const unreadCount = (notifications || []).filter(n => !n.isRead && !n.read).length;
 
   const handleLogout = () => {
     logout();

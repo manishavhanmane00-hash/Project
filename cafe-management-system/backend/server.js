@@ -1,28 +1,44 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 
-// Load environment variables
 dotenv.config();
-
-// Connect to MongoDB
 connectDB();
 
 const app = express();
 
-// ===== Middleware =====
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3000',
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
+app.use(helmet());
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? 'https://your-production-domain.com'
-    : ['http://localhost:3000', 'http://localhost:3001'],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('CORS policy does not allow this origin'));
+  },
   credentials: true,
 }));
 
-app.use(express.json()); // Parse JSON bodies
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+app.use('/api', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests from this IP, please try again later.' },
+}));
 
-// ===== Request Logger (development only) =====
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true }));
+
 if (process.env.NODE_ENV === 'development') {
   app.use((req, _res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
@@ -30,24 +46,25 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
-// ===== API Routes =====
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/categories', require('./routes/categoryRoutes'));
 app.use('/api/menu', require('./routes/menuRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
+app.use('/api/tables', require('./routes/tableRoutes'));
+app.use('/api/inventory', require('./routes/inventoryRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
+app.use('/api/reports', require('./routes/reportRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 
-// ===== Health Check =====
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ success: true, message: 'Cafe API is running 🚀', timestamp: new Date() });
 });
 
-// ===== 404 Handler =====
 app.use((_req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
 });
 
-// ===== Global Error Handler =====
 app.use((err, _req, res, _next) => {
   const statusCode = err.statusCode || 500;
   console.error('❌ Server Error:', err.message);

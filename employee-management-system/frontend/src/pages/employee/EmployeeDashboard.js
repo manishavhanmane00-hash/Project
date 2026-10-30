@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Clock, DollarSign, Star, CheckCircle,
@@ -9,8 +9,6 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import Badge from '../../components/shared/Badge';
 import { formatINR } from '../../utils/currency';
-import AIChatPanel from '../../components/ai/AIChatPanel';
-import { useAI } from '../../hooks/useAI';
 import toast from 'react-hot-toast';
 
 const StatCard = ({ icon: Icon, label, value, sub, color, bg, onClick }) => (
@@ -114,36 +112,7 @@ const EmployeeDashboard = () => {
     return acts.sort((a, b) => b.time?.localeCompare(a.time || '') || 0).slice(0, 6);
   }, [myAttendance, myLeaveRequests, myPayroll]);
 
-  // ── AI ──────────────────────────────────────────────────────────────────
-  const ai = useAI(user);
-
-  const buildEmployeeContext = useCallback(() => ({
-    myAttendance,
-    myLeave: myLeaveRequests,
-    myPayroll,
-    myPerformance,
-    userProfile: { department: user?.department, designation: user?.designation },
-  }), [myAttendance, myLeaveRequests, myPayroll, myPerformance, user]);
-
-  const handleEmployeeChat = useCallback(async (message) => {
-    const result = await ai.employeeChat(message, buildEmployeeContext());
-    if (!result) return 'AI Assistant is temporarily unavailable. Please check your connection and try again.';
-    if (!result.success) return result.message || 'AI Assistant is temporarily unavailable. Please try again.';
-    return result.answer || 'I could not generate a response. Please try rephrasing your question.';
-  }, [ai, buildEmployeeContext]);
-
-  // AI Weekly Summary state
-  const [weeklySummary, setWeeklySummary] = useState('');
-  const [weeklyLoading, setWeeklyLoading] = useState(false);
-
-  const loadWeeklySummary = useCallback(async () => {
-    setWeeklyLoading(true);
-    const result = await ai.employeeWeeklySummary(buildEmployeeContext());
-    if (result?.success && result.summary) {
-      setWeeklySummary(result.summary);
-    }
-    setWeeklyLoading(false);
-  }, [ai, buildEmployeeContext]);
+  // ── end of component state ──────────────────────────────────────────────
 
   return (
     <div>
@@ -327,57 +296,6 @@ const EmployeeDashboard = () => {
           </div>
         </div>
       </div>
-
-      {/* AI Weekly Summary */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: '1rem' }}>🤖</span>
-            </div>
-            <h3 className="card-title">Your AI Weekly Summary</h3>
-          </div>
-          <button
-            className="btn btn-outline btn-sm"
-            onClick={loadWeeklySummary}
-            disabled={weeklyLoading}
-          >
-            {weeklyLoading ? 'Generating...' : weeklySummary ? '↻ Refresh' : 'Generate Summary'}
-          </button>
-        </div>
-        <div className="card-body">
-          {weeklyLoading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[70, 55, 80, 50].map((w, i) => (
-                <div key={i} className="skeleton" style={{ height: 13, borderRadius: 4, width: `${w}%` }} />
-              ))}
-            </div>
-          ) : weeklySummary ? (
-            <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem', lineHeight: 1.7, color: 'var(--text-primary)' }}>
-              {weeklySummary}
-            </div>
-          ) : (
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Click "Generate Summary" to get an AI-powered overview of your week — attendance, leave, payroll, and performance.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Employee AI Assistant */}
-      <AIChatPanel
-        title="🤖 My AI Assistant"
-        onSend={handleEmployeeChat}
-        loading={ai.loading}
-        defaultOpen={false}
-        suggestions={[
-          'How many leaves do I have?',
-          'Show my attendance this month',
-          'What is my current performance rating?',
-          'What is the company leave policy?',
-        ]}
-        placeholder="Ask about your attendance, leave, payroll, performance or company policies..."
-      />
     </div>
   );
 };

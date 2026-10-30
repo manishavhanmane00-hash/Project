@@ -1,15 +1,23 @@
 {
   "name": "cafe-management-system",
   "version": "1.0.0",
-  "description": "",
+  "description": "Cafe management system full-stack project",
   "main": "index.js",
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix backend\" \"npm start --prefix frontend\"",
     "dev:backend": "npm run dev --prefix backend",
     "dev:frontend": "npm start --prefix frontend",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm run build --prefix frontend",
+    "start:backend": "npm run start --prefix backend",
+    "start:frontend": "npm start --prefix frontend",
+    "test": "echo \"No test suite configured yet\" && exit 0"
   },
-  "keywords": [],
+  "keywords": [
+    "cafe",
+    "restaurant",
+    "mern",
+    "admin-dashboard"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",

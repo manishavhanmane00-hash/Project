@@ -184,4 +184,72 @@ const checkOut = async (req, res) => {
   }
 };
 
-module.exports = { getAttendance, markAttendance, selfMarkAttendance, checkIn, checkOut };
+// Admin: correct an attendance record — stores an audit trail of the change
+// PUT /api/attendance/:id/correct  (admin/HR)
+const correctAttendance = async (req, res) => {
+  try {
+    const record = await Attendance.findById(req.params.id);
+    if (!record) return res.status(404).json({ success: false, message: 'Attendance record not found' });
+
+    const { checkIn, checkOut, status, late, reason } = req.body;
+    const before = {
+      checkIn: record.checkIn,
+      checkOut: record.checkOut,
+      status: record.status,
+      late: record.late,
+    };
+
+    if (checkIn !== undefined) record.checkIn = checkIn || null;
+    if (checkOut !== undefined) record.checkOut = checkOut || null;
+    if (status !== undefined) record.status = status;
+    if (late !== undefined) record.late = late;
+
+    if (record.checkIn && record.checkOut) {
+      const { hours, overtime } = calcHours(record.checkIn, record.checkOut);
+      record.hours = hours;
+      record.overtime = overtime;
+    }
+
+    // Audit trail
+    record.correctedAt = new Date();
+    record.correctedBy = req.user.name;
+    record.correctionReason = (reason || '').trim();
+    record.correctionBefore = before;
+
+    await record.save();
+    res.json({ success: true, data: record });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// Employee: fetch their own attendance summary for a month
+// GET /api/attendance/my-summary?month=YYYY-MM
+const mySummary = async (req, res) => {
+  try {
+    const { month } = req.query;
+    if (!month) return res.status(400).json({ success: false, message: 'month (YYYY-MM) is required' });
+
+    const records = await Attendance.find({
+      $or: [{ userId: req.user.id }, { email: req.user.email }],
+      date: { $regex: `^${month}` },
+    }).sort({ date: 1 });
+
+    const summary = {
+      total: records.length,
+      present: records.filter(r => r.status === 'present').length,
+      late: records.filter(r => r.status === 'late').length,
+      absent: records.filter(r => r.status === 'absent').length,
+      halfDay: records.filter(r => r.status === 'half-day').length,
+      leave: records.filter(r => r.status === 'leave').length,
+      totalHours: records.reduce((s, r) => s + (r.hours || 0), 0),
+      totalOvertime: records.reduce((s, r) => s + (r.overtime || 0), 0),
+    };
+
+    res.json({ success: true, data: { records, summary } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { getAttendance, markAttendance, selfMarkAttendance, checkIn, checkOut, correctAttendance, mySummary };
