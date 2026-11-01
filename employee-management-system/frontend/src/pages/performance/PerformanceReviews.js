@@ -83,7 +83,8 @@ const ReviewForm = ({ employees, onSave, onClose, currentUser, saving }) => {
 
 const PerformanceReviews = () => {
   const { performanceReviews, savePerformanceReview, employees } = useApp();
-  const { user } = useAuth();
+  const { user, can } = useAuth();
+  const canAdd = can('performance', 'add');
   const [modalOpen, setModalOpen] = useState(false);
   const [viewReview, setViewReview] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -121,7 +122,7 @@ const PerformanceReviews = () => {
             <h1 className="page-title">Performance Reviews</h1>
             <p className="page-subtitle">{performanceReviews.length} reviews completed · Avg rating: {avgRating}/5</p>
           </div>
-          <button className="btn btn-primary" onClick={() => setModalOpen(true)}><Plus size={14} /> New Review</button>
+          {canAdd && <button className="btn btn-primary" onClick={() => setModalOpen(true)}><Plus size={14} /> New Review</button>}
         </div>
       </div>
 

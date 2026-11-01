@@ -1,18 +1,25 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Filter, Download, Eye, Edit2, Trash2, MoreVertical, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, Plus, Download, Eye, Edit2, Trash2, ChevronUp, ChevronDown, KeyRound, FileText, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
+import { authAPI } from '../../services/api';
 import Avatar from '../../components/shared/Avatar';
 import Badge from '../../components/shared/Badge';
 import Pagination from '../../components/shared/Pagination';
-import { ConfirmModal } from '../../components/shared/Modal';
+import Modal, { ConfirmModal } from '../../components/shared/Modal';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 10;
 
 const EmployeeList = () => {
-  const { employees, departments, deleteEmployee } = useApp();
+  const { employees, departments, deleteEmployee, getEmployeeDrafts, deleteEmployeeDraft } = useApp();
+  const { can } = useAuth();
   const navigate = useNavigate();
+  const canAdd    = can('employees', 'add');
+  const canEdit   = can('employees', 'edit');
+  const canDelete = can('employees', 'delete');
+  const canManage = can('employees', 'manage'); // password reset / status
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -22,6 +29,34 @@ const EmployeeList = () => {
   const [page, setPage] = useState(1);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [resetTarget, setResetTarget] = useState(null);
+  const [resetPwd, setResetPwd] = useState('');
+  const [resetting, setResetting] = useState(false);
+  const [drafts, setDrafts] = useState([]);
+
+  // Load the current user's saved drafts so they can be resumed.
+  const loadDrafts = useCallback(async () => {
+    if (!canAdd) return;
+    try {
+      const list = await getEmployeeDrafts();
+      setDrafts(list || []);
+    } catch {
+      setDrafts([]);
+    }
+  }, [canAdd, getEmployeeDrafts]);
+
+  useEffect(() => { loadDrafts(); }, [loadDrafts]);
+
+  const handleDiscardDraft = async (draftId, e) => {
+    e?.stopPropagation();
+    try {
+      await deleteEmployeeDraft(draftId);
+      setDrafts(prev => prev.filter(d => d._id !== draftId));
+      toast.success('Draft discarded');
+    } catch (err) {
+      toast.error(err.message || 'Failed to discard draft');
+    }
+  };
 
   const handleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -69,6 +104,32 @@ const EmployeeList = () => {
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!resetTarget?.userId) {
+      toast.error('This employee has no linked login account.');
+      return;
+    }
+    if (!resetPwd || resetPwd.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setResetting(true);
+    try {
+      const { data } = await authAPI.resetUserPassword(resetTarget.userId, { newPassword: resetPwd });
+      if (data.success) {
+        toast.success(`Password reset for ${resetTarget.name}. They must change it on next login.`);
+        setResetTarget(null);
+        setResetPwd('');
+      } else {
+        toast.error(data.message || 'Failed to reset password');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const handleExport = () => {
     const csv = ['EmpID,Name,Email,Phone,Department,Designation,Type,Status'].concat(
       filtered.map(e => `${e.employeeId || ''},${e.name},${e.email},${e.phone},${e.department},${e.designation},${e.employmentType},${e.status}`)
@@ -94,12 +155,54 @@ const EmployeeList = () => {
             <button className="btn btn-outline btn-sm" onClick={handleExport}>
               <Download size={14} /> Export
             </button>
-            <button className="btn btn-primary btn-sm" onClick={() => navigate('/employees/add')}>
-              <Plus size={14} /> Add Employee
-            </button>
+            {canAdd && (
+              <button className="btn btn-primary btn-sm" onClick={() => navigate('/employees/add')}>
+                <Plus size={14} /> Add Employee
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Saved drafts — resume where you left off */}
+      {canAdd && drafts.length > 0 && (
+        <div className="card" style={{ marginBottom: 20, padding: '16px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <FileText size={16} color="var(--primary)" />
+            <strong style={{ fontSize: '0.9rem' }}>Saved Drafts</strong>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({drafts.length}) — continue from where you left off</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {drafts.map(d => {
+              const title = d.name || [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email || 'Untitled draft';
+              return (
+                <div
+                  key={d._id}
+                  onClick={() => navigate(`/employees/add?draft=${d._id}`)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', background: 'var(--surface)' }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      Step {d.draftStep || 1} of 5
+                      {d.department ? ` · ${d.department}` : ''}
+                      {d.updatedAt ? ` · saved ${new Date(d.updatedAt).toLocaleString()}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); navigate(`/employees/add?draft=${d._id}`); }}>
+                      Resume
+                    </button>
+                    <button className="btn-icon danger" title="Discard draft" onClick={(e) => handleDiscardDraft(d._id, e)}>
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card" style={{ marginBottom: 20, padding: '16px 20px' }}>
@@ -187,12 +290,21 @@ const EmployeeList = () => {
                     <button className="btn-icon primary" title="View Profile" onClick={() => navigate(`/employees/${emp._id}`)}>
                       <Eye size={14} />
                     </button>
-                    <button className="btn-icon" title="Edit" onClick={() => navigate(`/employees/edit/${emp._id}`)}>
-                      <Edit2 size={14} />
-                    </button>
-                    <button className="btn-icon danger" title="Delete" onClick={() => setConfirmDelete(emp)}>
-                      <Trash2 size={14} />
-                    </button>
+                    {canEdit && (
+                      <button className="btn-icon" title="Edit" onClick={() => navigate(`/employees/edit/${emp._id}`)}>
+                        <Edit2 size={14} />
+                      </button>
+                    )}
+                    {canManage && (
+                      <button className="btn-icon" title="Reset Password" onClick={() => { setResetTarget(emp); setResetPwd(''); }}>
+                        <KeyRound size={14} />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button className="btn-icon danger" title="Delete" onClick={() => setConfirmDelete(emp)}>
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -218,6 +330,34 @@ const EmployeeList = () => {
         message={`Are you sure you want to delete ${confirmDelete?.name}? This action cannot be undone.`}
         confirmLabel="Delete"
       />
+
+      <Modal
+        open={!!resetTarget}
+        onClose={() => { setResetTarget(null); setResetPwd(''); }}
+        title="Reset Password"
+        size="sm"
+        footer={
+          <>
+            <button className="btn btn-outline" onClick={() => { setResetTarget(null); setResetPwd(''); }} disabled={resetting}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleResetPassword} disabled={resetting}>
+              {resetting ? 'Resetting…' : 'Reset Password'}
+            </button>
+          </>
+        }
+      >
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 14 }}>
+          Set a new password for <strong>{resetTarget?.name}</strong>
+          {resetTarget?.employeeId ? ` (${resetTarget.employeeId})` : ''}. They will be required to change it on next login.
+        </p>
+        <input
+          type="password"
+          className="form-control"
+          placeholder="New password (min 6 characters)"
+          value={resetPwd}
+          onChange={e => setResetPwd(e.target.value)}
+          autoComplete="new-password"
+        />
+      </Modal>
     </div>
   );
 };

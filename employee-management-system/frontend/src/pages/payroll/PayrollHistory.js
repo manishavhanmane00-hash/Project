@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Download, CheckCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import Avatar from '../../components/shared/Avatar';
 import Badge from '../../components/shared/Badge';
 import { formatINR } from '../../utils/currency';
@@ -8,6 +9,8 @@ import toast from 'react-hot-toast';
 
 const PayrollHistory = () => {
   const { payrollData, approvePayroll } = useApp();
+  const { can } = useAuth();
+  const canApprove = can('payroll', 'manage');
   const [filter, setFilter] = useState('');
 
   const pending  = payrollData.filter(p => p.status === 'pending').length;
@@ -98,7 +101,7 @@ const PayrollHistory = () => {
                     <td><Badge status={p.status} /></td>
                     <td>
                       <div className="table-actions">
-                        {p.status === 'pending' && (
+                        {p.status === 'pending' && canApprove && (
                           <button className="btn btn-sm btn-success"
                             onClick={async () => {
                               try {

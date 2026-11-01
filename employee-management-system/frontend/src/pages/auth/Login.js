@@ -15,7 +15,7 @@ const GOOGLE_CONFIGURED =
 
 // ─────────────────────────────────────────────────────────────────────────────
 const Login = () => {
-  const [form, setForm]         = useState({ email: '', password: '', remember: false });
+  const [form, setForm]         = useState({ identifier: '', password: '', remember: false });
   const [showPass, setShowPass] = useState(false);
   const [error, setError]       = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -35,12 +35,16 @@ const Login = () => {
 
   const handleSubmit = async e => {
     e.preventDefault();
-    if (!form.email || !form.password) { setError('Please enter your email and password'); return; }
+    if (!form.identifier || !form.password) { setError('Please enter your Employee ID (or email) and password'); return; }
     setError('');
-    const res = await login(form.email, form.password);
+    const res = await login(form.identifier, form.password);
     if (res.success) {
       toast.success('Welcome back!');
-      navigate(res.role === 'Employee' ? '/employee/dashboard' : '/dashboard');
+      if (res.mustChangePassword) {
+        navigate(res.role === 'Employee' ? '/employee/settings' : '/settings');
+      } else {
+        navigate(res.role === 'Employee' ? '/employee/dashboard' : '/dashboard');
+      }
     } else {
       setError(res.error || 'Login failed. Please check your credentials.');
     }
@@ -269,20 +273,20 @@ const Login = () => {
 
           {/* ── Email / password form ─────────────────────────────────── */}
           <form onSubmit={handleSubmit} noValidate>
-            {/* Email */}
+            {/* Employee ID or Email */}
             <div style={{ marginBottom: 18 }}>
-              <label htmlFor="login-email" style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem', color: '#0f172a', marginBottom: 6 }}>
-                Email Address
+              <label htmlFor="login-identifier" style={{ display: 'block', fontWeight: 500, fontSize: '0.875rem', color: '#0f172a', marginBottom: 6 }}>
+                Employee ID or Email
               </label>
               <div style={{ position: 'relative' }}>
                 <Mail size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
                 <input
-                  id="login-email"
-                  type="email" name="email" value={form.email}
+                  id="login-identifier"
+                  type="text" name="identifier" value={form.identifier}
                   onChange={handleChange}
-                  placeholder="you@company.com"
+                  placeholder="EMP-0001 or you@company.com"
                   required
-                  autoComplete="email"
+                  autoComplete="username"
                   style={{ width: '100%', padding: '10px 14px 10px 38px', borderRadius: 10, border: '1.5px solid #e2e8f0', fontSize: '0.875rem', outline: 'none', background: '#f8fafc', color: '#0f172a' }}
                 />
               </div>

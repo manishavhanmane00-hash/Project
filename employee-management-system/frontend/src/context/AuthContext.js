@@ -39,14 +39,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ── Login ──────────────────────────────────────────────────────────────────
-  const login = async (email, password) => {
+  const login = async (identifier, password) => {
     setLoading(true);
     try {
-      const { data } = await authAPI.login({ email, password });
+      // `identifier` may be an Employee ID (EMP-0001) or an email address.
+      const { data } = await authAPI.login({ identifier, password });
       if (data.success) {
         persistUser(data.user, data.token);
         setLoading(false);
-        return { success: true, role: data.user.role };
+        return { success: true, role: data.user.role, mustChangePassword: data.user.mustChangePassword === true };
       }
       setLoading(false);
       return { success: false, error: data.message };

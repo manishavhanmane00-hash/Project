@@ -7,15 +7,15 @@ const {
   updateHoliday,
   deleteHoliday,
 } = require('../controllers/holidayController');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 const { checkPermission, checkAction } = require('../middleware/checkPermission');
 
 router.use(protect);
 
 router.get('/',    checkPermission('holidays'), getHolidays);
 router.get('/:id', checkPermission('holidays'), getHolidayById);
-router.post('/',          adminOnly, checkAction('holidays', 'add'),    createHoliday);
-router.put('/:id',        adminOnly, checkAction('holidays', 'edit'),   updateHoliday);
-router.delete('/:id',     adminOnly, checkAction('holidays', 'delete'), deleteHoliday);
+router.post('/',          checkAction('holidays', 'add'),    createHoliday);
+router.put('/:id',        checkAction('holidays', 'edit'),   updateHoliday);
+router.delete('/:id',     checkAction('holidays', 'delete'), deleteHoliday);
 
 module.exports = router;

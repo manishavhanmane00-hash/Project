@@ -7,15 +7,15 @@ const {
   updateAdvance,
   deleteAdvance,
 } = require('../controllers/advanceController');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 const { checkPermission, checkAction } = require('../middleware/checkPermission');
 
 router.use(protect);
 
 router.get('/',        checkPermission('advances.records'), getAdvances);
 router.get('/:id',     checkPermission('advances.records'), getAdvance);
-router.post('/',       adminOnly, checkAction('advances', 'add'),    createAdvance);
-router.put('/:id',     adminOnly, checkAction('advances', 'edit'),   updateAdvance);
-router.delete('/:id',  adminOnly, checkAction('advances', 'delete'), deleteAdvance);
+router.post('/',       checkAction('advances', 'add'),    createAdvance);
+router.put('/:id',     checkAction('advances', 'edit'),   updateAdvance);
+router.delete('/:id',  checkAction('advances', 'delete'), deleteAdvance);
 
 module.exports = router;

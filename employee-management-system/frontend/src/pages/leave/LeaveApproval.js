@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import Avatar from '../../components/shared/Avatar';
 import Badge from '../../components/shared/Badge';
 import Modal from '../../components/shared/Modal';
@@ -8,6 +9,8 @@ import toast from 'react-hot-toast';
 
 const LeaveApproval = () => {
   const { leaveRequests, updateLeaveStatus, leaveBalances } = useApp();
+  const { can } = useAuth();
+  const canApprove = can('leave', 'manage');
   const [viewReq, setViewReq] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [action, setAction] = useState(null);
@@ -105,12 +108,16 @@ const LeaveApproval = () => {
                       </div>
                     )}
                     <div style={{ display: 'flex', gap: 10 }}>
-                      <button className="btn btn-success btn-sm" onClick={() => handleApprove(req)}>
-                        <CheckCircle size={14} /> Approve
-                      </button>
-                      <button className="btn btn-danger btn-sm" onClick={() => { setViewReq(req); setAction('reject'); }}>
-                        <XCircle size={14} /> Reject
-                      </button>
+                      {canApprove && (
+                        <>
+                          <button className="btn btn-success btn-sm" onClick={() => handleApprove(req)}>
+                            <CheckCircle size={14} /> Approve
+                          </button>
+                          <button className="btn btn-danger btn-sm" onClick={() => { setViewReq(req); setAction('reject'); }}>
+                            <XCircle size={14} /> Reject
+                          </button>
+                        </>
+                      )}
                       <button className="btn btn-outline btn-sm" onClick={() => { setViewReq(req); setAction('view'); }}>
                         View Details
                       </button>

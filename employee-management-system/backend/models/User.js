@@ -3,7 +3,15 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   name:        { type: String, required: [true, 'Name is required'], trim: true },
-  email:       { type: String, required: [true, 'Email is required'], unique: true, trim: true, lowercase: true },
+  // Email is optional for employee accounts that log in with an Employee ID.
+  // When present it must be unique (sparse index allows multiple nulls).
+  email:       { type: String, unique: true, sparse: true, trim: true, lowercase: true, default: undefined },
+  // Human-readable Employee ID used as a login identifier (e.g. EMP-0001).
+  // Unique + sparse so staff accounts (Admin/HR/Manager) without one are allowed.
+  employeeId:  { type: String, unique: true, sparse: true, trim: true, index: true, default: undefined },
+  // Flag set true when the initial password was set by HR/Admin and the
+  // employee has not yet changed it. Used to prompt a password change on first login.
+  mustChangePassword: { type: Boolean, default: false },
   password:    { type: String, required: [true, 'Password is required'], minlength: 6, select: false },
   role:        { type: String, enum: ['Admin', 'HR', 'Manager', 'Employee'], default: 'Employee' },
   designation: { type: String, default: '', trim: true },

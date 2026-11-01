@@ -2,21 +2,30 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, User, Clock, PlaneTakeoff, DollarSign,
-  Star, Bell, Settings, LogOut, Shield
+  Star, Bell, Settings, LogOut, Shield, CalendarDays, Timer, Wallet
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../shared/Avatar';
 
+// Employee portal navigation.
+//  - `always: true` items are personal self-service pages that every employee
+//    sees regardless of permissions (their own dashboard/profile/etc).
+//  - items with a `perm` key are shared modules that appear ONLY when the Admin
+//    has granted the Employee role access to that module (dynamic RBAC).
 const NAV_ITEMS = [
-  { icon: LayoutDashboard, label: 'Dashboard',      path: '/employee/dashboard' },
-  { icon: User,            label: 'My Profile',     path: '/employee/profile'   },
-  { icon: Clock,           label: 'My Attendance',  path: '/employee/attendance'},
-  { icon: PlaneTakeoff,    label: 'My Leave',       path: '/employee/leave'     },
-  { icon: DollarSign,      label: 'My Payroll',     path: '/employee/payroll'   },
-  { icon: Star,            label: 'My Performance', path: '/employee/performance'},
-  { icon: Bell,            label: 'Notifications',  path: '/employee/notifications'},
-  { icon: Settings,        label: 'Settings',       path: '/employee/settings'  },
+  { icon: LayoutDashboard, label: 'Dashboard',      path: '/employee/dashboard',     always: true },
+  { icon: User,            label: 'My Profile',     path: '/employee/profile',       always: true },
+  { icon: Clock,           label: 'My Attendance',  path: '/employee/attendance',    always: true },
+  { icon: PlaneTakeoff,    label: 'My Leave',       path: '/employee/leave',         always: true },
+  { icon: DollarSign,      label: 'My Payroll',     path: '/employee/payroll',       always: true },
+  { icon: Star,            label: 'My Performance', path: '/employee/performance',   always: true },
+  // Shared modules — shown only when permitted by Admin-configured permissions.
+  { icon: CalendarDays,    label: 'Holidays',       path: '/employee/holidays',      perm: 'holidays.calendar' },
+  { icon: Timer,           label: 'Overtime',       path: '/employee/overtime',      perm: 'overtime.records' },
+  { icon: Wallet,          label: 'Advances',       path: '/employee/advances',      perm: 'advances.records' },
+  { icon: Bell,            label: 'Notifications',  path: '/employee/notifications', always: true },
+  { icon: Settings,        label: 'Settings',       path: '/employee/settings',      always: true },
 ];
 
 const NavItemComponent = ({ item, collapsed, unreadCount }) => {
@@ -57,10 +66,13 @@ const NavItemComponent = ({ item, collapsed, unreadCount }) => {
 
 const EmployeeSidebar = () => {
   const { sidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen, notifications } = useApp();
-  const { user, logout } = useAuth();
+  const { user, logout, canAccess } = useAuth();
   const navigate = useNavigate();
 
   const unreadCount = (notifications || []).filter(n => !n.isRead && !n.read).length;
+
+  // Dynamic nav: always-on personal pages + permitted shared modules.
+  const visibleNav = NAV_ITEMS.filter(item => item.always || canAccess(item.perm));
 
   const handleLogout = () => {
     logout();
@@ -92,7 +104,7 @@ const EmployeeSidebar = () => {
         <nav className="sidebar-nav">
           <div className="nav-section">
             {!sidebarCollapsed && <div className="nav-section-label">Navigation</div>}
-            {NAV_ITEMS.map(item => (
+            {visibleNav.map(item => (
               <NavItemComponent
                 key={item.path}
                 item={item}

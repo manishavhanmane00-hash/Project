@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { getPerformance, createReview, updateReview } = require('../controllers/performanceController');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { checkPermission, checkAction } = require('../middleware/checkPermission');
 
 router.use(protect);
 
-router.get('/', getPerformance);
-router.post('/', adminOnly, createReview);
-router.put('/:id', adminOnly, updateReview);
+router.get('/',    checkPermission('performance'),        getPerformance);
+router.post('/',   checkAction('performance', 'add'),     createReview);
+router.put('/:id', checkAction('performance', 'edit'),    updateReview);
 
 module.exports = router;

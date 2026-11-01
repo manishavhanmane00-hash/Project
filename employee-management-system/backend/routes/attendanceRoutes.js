@@ -4,19 +4,20 @@ const {
   getAttendance, markAttendance, selfMarkAttendance,
   checkIn, checkOut, correctAttendance, mySummary,
 } = require('../controllers/attendanceController');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { checkPermission, checkAction } = require('../middleware/checkPermission');
 
 router.use(protect);
 
-// Employee routes (must come before /:id to avoid conflicts)
+// ── Self-service (any authenticated user; controller scopes to the caller) ──
 router.post('/check-in',    checkIn);
 router.put('/check-out',    checkOut);
-router.post('/self',         selfMarkAttendance);
+router.post('/self',        selfMarkAttendance);
 router.get('/my-summary',   mySummary);
 
-// Admin/HR routes
-router.get('/',             getAttendance);
-router.post('/',            adminOnly, markAttendance);
-router.put('/:id/correct',  adminOnly, correctAttendance);
+// ── Module-gated routes ─────────────────────────────────────────────────────
+router.get('/',            checkPermission('attendance'), getAttendance);
+router.post('/',           checkAction('attendance', 'add'),    markAttendance);
+router.put('/:id/correct', checkAction('attendance', 'edit'),   correctAttendance);
 
 module.exports = router;

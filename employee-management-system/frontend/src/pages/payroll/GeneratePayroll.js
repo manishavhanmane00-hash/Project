@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import Avatar from '../../components/shared/Avatar';
 import Badge from '../../components/shared/Badge';
 import { formatINR } from '../../utils/currency';
@@ -9,6 +10,8 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 
 const GeneratePayroll = () => {
   const { employees, payrollData, generatePayroll, departments } = useApp();
+  const { can } = useAuth();
+  const canGenerate = can('payroll', 'add');
   const [month,      setMonth]      = useState(MONTHS[new Date().getMonth()]);
   const [year,       setYear]       = useState(String(new Date().getFullYear()));
   const [deptFilter, setDeptFilter] = useState('');
@@ -107,10 +110,12 @@ const GeneratePayroll = () => {
                 </span>
               )}
             </div>
-            <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }}
-              onClick={handleGenerate} disabled={processing || selected.length === 0}>
-              {processing ? 'Generating…' : `Generate Payroll (${selected.length})`}
-            </button>
+            {canGenerate && (
+              <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }}
+                onClick={handleGenerate} disabled={processing || selected.length === 0}>
+                {processing ? 'Generating…' : `Generate Payroll (${selected.length})`}
+              </button>
+            )}
           </div>
         </div>
       </div>

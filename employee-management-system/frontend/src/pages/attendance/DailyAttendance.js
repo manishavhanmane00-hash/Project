@@ -56,7 +56,8 @@ const AttendanceModal = ({ employee, record, onSave, onClose }) => {
 
 const DailyAttendance = () => {
   const { employees, attendanceData, markAttendance, departments } = useApp();
-  const { user } = useAuth();
+  const { can } = useAuth();
+  const canMark = can('attendance', 'add');
   const [selectedDate, setSelectedDate] = useState(TODAY);
   const [deptFilter, setDeptFilter] = useState('');
   const [editEmp, setEditEmp] = useState(null);
@@ -127,7 +128,7 @@ const DailyAttendance = () => {
             <p className="page-subtitle">Track and manage employee attendance</p>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-outline btn-sm" onClick={() => handleBulkMark('present')}><CheckCircle size={14} /> Mark All Present</button>
+            {canMark && <button className="btn btn-outline btn-sm" onClick={() => handleBulkMark('present')}><CheckCircle size={14} /> Mark All Present</button>}
             <button className="btn btn-outline btn-sm" onClick={handleExport}><Download size={14} /> Export</button>
           </div>
         </div>
@@ -193,9 +194,11 @@ const DailyAttendance = () => {
                   <td>{rec?.late ? <span style={{ color: 'var(--warning)', fontSize: '0.8rem', fontWeight: 600 }}>Late</span> : <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>}</td>
                   <td style={{ fontSize: '0.875rem' }}>{rec?.overtime ? `${rec.overtime}h` : '—'}</td>
                   <td>
-                    <button className="btn-icon primary" onClick={() => setEditEmp({ emp, record: rec })} title="Edit Attendance">
-                      <Edit2 size={13} />
-                    </button>
+                    {canMark ? (
+                      <button className="btn-icon primary" onClick={() => setEditEmp({ emp, record: rec })} title="Mark Attendance">
+                        <Edit2 size={13} />
+                      </button>
+                    ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                   </td>
                 </tr>
               );

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Users, Building2, Search } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import Modal, { ConfirmModal } from '../../components/shared/Modal';
 import Badge from '../../components/shared/Badge';
 import toast from 'react-hot-toast';
@@ -39,6 +40,10 @@ const DeptForm = ({ initial, onSave, onClose }) => {
 
 const Departments = () => {
   const { departments, addDepartment, updateDepartment, deleteDepartment, employees } = useApp();
+  const { can } = useAuth();
+  const canAdd    = can('departments', 'add');
+  const canEdit   = can('departments', 'edit');
+  const canDelete = can('departments', 'delete');
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -89,9 +94,11 @@ const Departments = () => {
             <h1 className="page-title">Departments</h1>
             <p className="page-subtitle">{departments.length} departments configured</p>
           </div>
-          <button className="btn btn-primary" onClick={() => { setEditItem(null); setModalOpen(true); }}>
-            <Plus size={14} /> Add Department
-          </button>
+          {canAdd && (
+            <button className="btn btn-primary" onClick={() => { setEditItem(null); setModalOpen(true); }}>
+              <Plus size={14} /> Add Department
+            </button>
+          )}
         </div>
       </div>
 
@@ -110,8 +117,8 @@ const Departments = () => {
                 <Building2 size={22} color="var(--primary)" />
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button className="btn-icon" onClick={() => { setEditItem(dept); setModalOpen(true); }}><Edit2 size={13} /></button>
-                <button className="btn-icon danger" onClick={() => setDeleteItem(dept)}><Trash2 size={13} /></button>
+                {canEdit && <button className="btn-icon" onClick={() => { setEditItem(dept); setModalOpen(true); }}><Edit2 size={13} /></button>}
+                {canDelete && <button className="btn-icon danger" onClick={() => setDeleteItem(dept)}><Trash2 size={13} /></button>}
               </div>
             </div>
             <h3 style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 4 }}>{dept.name}</h3>

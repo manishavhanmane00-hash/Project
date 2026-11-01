@@ -36,7 +36,10 @@ const AdvanceRecords = () => {
   const {
     advanceRecords, addAdvance, updateAdvance, deleteAdvance, employees, currency,
   } = useApp();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, can } = useAuth();
+  const canAdd    = can('advances', 'add');
+  const canEdit   = can('advances', 'edit');
+  const canDelete = can('advances', 'delete');
 
   // ── Local list state (skeleton + retain last data on error) ────────────────
   const [records, setRecords] = useState(advanceRecords);
@@ -62,7 +65,8 @@ const AdvanceRecords = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const canManage = isAdmin();
+  // Oversight (view all records vs own) implied by edit rights; Admin passes.
+  const canViewAll = canEdit || isAdmin();
   const sym = currency?.symbol || '';
   const fmtAmount = (n) => `${sym}${Number(n || 0).toLocaleString(currency?.locale || 'en-IN')}`;
 
@@ -92,13 +96,13 @@ const AdvanceRecords = () => {
 
   // ── Employee scoping (Req 10.2): employees only see their own records ───────
   const scoped = useMemo(() => {
-    if (canManage) return records;
+    if (canViewAll) return records;
     return records.filter(r =>
       (user?._id && (r.userId === user._id || r.userId?.toString?.() === user._id)) ||
       (user?.id && r.userId === user.id) ||
       (user?.email && r.email === user.email)
     );
-  }, [records, canManage, user]);
+  }, [records, canViewAll, user]);
 
   // ── Filtering (Req 12.1) via shared selector; type field = paymentMethod ────
   const filtered = useMemo(() => {
@@ -306,7 +310,7 @@ const AdvanceRecords = () => {
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-outline" onClick={handlePrint} title="Print filtered records"><Printer size={14} /> Print</button>
             <button className="btn btn-outline" onClick={handleExport} title="Export filtered records"><Download size={14} /> Export</button>
-            {canManage && <button className="btn btn-primary" onClick={openAdd}><Plus size={14} /> Give Advance</button>}
+            {canAdd && <button className="btn btn-primary" onClick={openAdd}><Plus size={14} /> Give Advance</button>}
           </div>
         </div>
       </div>
@@ -380,12 +384,14 @@ const AdvanceRecords = () => {
                 <td>
                   <div className="table-actions">
                     <button className="btn-icon primary" onClick={() => setViewRec(rec)} title="View Details"><Eye size={13} /></button>
-                    {canManage && (
+                    {canEdit && (
                       <>
                         <button className="btn-icon" onClick={() => openEdit(rec)} title="Edit"><Pencil size={13} /></button>
                         <button className="btn-icon" style={{ color: 'var(--success)', borderColor: 'var(--success-light)' }} onClick={() => openStatus(rec)} title="Update Status"><Wallet size={13} /></button>
-                        <button className="btn-icon danger" onClick={() => setDeleteTarget(rec)} title="Delete"><Trash2 size={13} /></button>
                       </>
+                    )}
+                    {canDelete && (
+                      <button className="btn-icon danger" onClick={() => setDeleteTarget(rec)} title="Delete"><Trash2 size={13} /></button>
                     )}
                   </div>
                 </td>
@@ -405,7 +411,7 @@ const AdvanceRecords = () => {
           footer={
             <>
               <button className="btn btn-outline" onClick={() => setViewRec(null)}>Close</button>
-              {canManage && (
+              {canEdit && (
                 <button className="btn btn-primary" onClick={() => { openStatus(viewRec); }}>Update Status</button>
               )}
             </>

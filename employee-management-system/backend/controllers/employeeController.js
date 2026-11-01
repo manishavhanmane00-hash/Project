@@ -18,15 +18,41 @@ const normalizeEmployeeData = (body) => {
 };
 
 /**
- * Generate the next sequential employee ID (EMP-0001, EMP-0002, ...)
+ * Generate the next sequential employee ID (EMP-0001, EMP-0002, ...).
+ * Scans the highest existing numeric suffix across BOTH Employee and User
+ * collections so IDs never collide, even if a login account exists without a
+ * matching employee record (or vice versa).
  */
 const generateEmployeeId = async () => {
-  const last = await Employee.findOne({ employeeId: /^EMP-\d+$/ }).sort({ employeeId: -1 });
-  let next = 1;
-  if (last && last.employeeId) {
-    next = parseInt(last.employeeId.split('-')[1], 10) + 1;
-  }
+  const parseMax = (docs) => docs.reduce((max, d) => {
+    const m = /^EMP-(\d+)$/.exec(d.employeeId || '');
+    return m ? Math.max(max, parseInt(m[1], 10)) : max;
+  }, 0);
+
+  const [empLast, userLast] = await Promise.all([
+    Employee.findOne({ employeeId: /^EMP-\d+$/ }).sort({ employeeId: -1 }),
+    User.findOne({ employeeId: /^EMP-\d+$/ }).sort({ employeeId: -1 }),
+  ]);
+
+  const next = parseMax([empLast, userLast].filter(Boolean)) + 1;
   return `EMP-${String(next).padStart(4, '0')}`;
+};
+
+/**
+ * Generate a unique employee ID, retrying if a concurrent create grabbed the
+ * same number. Guards against the (rare) race between read and write.
+ */
+const generateUniqueEmployeeId = async () => {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = await generateEmployeeId();
+    const [empExists, userExists] = await Promise.all([
+      Employee.exists({ employeeId: candidate }),
+      User.exists({ employeeId: candidate }),
+    ]);
+    if (!empExists && !userExists) return candidate;
+  }
+  // Fallback: timestamp-based ID guaranteed unique
+  return `EMP-${Date.now().toString().slice(-8)}`;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -45,7 +71,8 @@ const getEmployees = async (req, res) => {
       return res.json({ success: true, count: me ? 1 : 0, data: me ? [me] : [] });
     }
 
-    const filter = {};
+    // Exclude drafts from the main employee list — they live in a separate resume list.
+    const filter = { isDraft: { $ne: true } };
     if (search) {
       const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       filter.$or = [{ name: rx }, { email: rx }, { employeeId: rx }, { phone: rx }];
@@ -115,45 +142,221 @@ const getMyEmployeeRecord = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Draft helpers
+// A draft is a partially-filled, not-yet-finalized employee record. It is owned
+// by the user who created it (createdBy) so it survives refresh/logout/login and
+// can be resumed from the step the user left off on. No User login account is
+// created for a draft — that only happens when the draft is finalized.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Fields that are safe to persist on a draft (everything the form collects).
+const sanitizeDraftData = (body) => {
+  const data = normalizeEmployeeData(body); // strips role/userId, merges name/designation
+  // Never store login credentials on the draft document.
+  delete data.password;
+  delete data.confirmPassword;
+  delete data.loginRole;
+  // Keep loginRole as plain metadata so the form can restore the selection.
+  if (['Employee', 'Manager', 'HR'].includes(body.loginRole)) {
+    data.loginRole = body.loginRole;
+  }
+  return data;
+};
+
+// GET /api/employees/drafts — list the current user's drafts (newest first)
+const getDrafts = async (req, res) => {
+  try {
+    const drafts = await Employee.find({ isDraft: true, createdBy: req.user.id })
+      .sort({ updatedAt: -1 });
+    res.json({ success: true, count: drafts.length, data: drafts });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/employees/drafts/:id — fetch a single draft the user owns
+const getDraftById = async (req, res) => {
+  try {
+    const draft = await Employee.findOne({ _id: req.params.id, isDraft: true, createdBy: req.user.id });
+    if (!draft) return res.status(404).json({ success: false, message: 'Draft not found' });
+    res.json({ success: true, data: draft });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/employees/drafts        — create a new draft
+// PUT  /api/employees/drafts/:id    — update an existing draft
+// Relaxed validation: a draft can be saved with any subset of fields filled.
+const saveDraft = async (req, res) => {
+  try {
+    const data = sanitizeDraftData(req.body);
+    data.isDraft = true;
+    data.createdBy = req.user.id;
+    data.draftStep = Number(req.body.draftStep) || 1;
+    // Drafts must never carry an employeeId (that is assigned only on finalize).
+    delete data.employeeId;
+    // Blank email → store undefined so it won't collide on the partial unique index.
+    if (!data.email) delete data.email;
+
+    const draftId = req.params.id;
+    let draft;
+    if (draftId) {
+      draft = await Employee.findOne({ _id: draftId, isDraft: true, createdBy: req.user.id });
+      if (!draft) return res.status(404).json({ success: false, message: 'Draft not found' });
+      // If email was cleared, unset it on the stored document.
+      if (!data.email) draft.email = undefined;
+      Object.assign(draft, data);
+      await draft.save();
+    } else {
+      draft = await Employee.create(data);
+    }
+
+    res.status(draftId ? 200 : 201).json({ success: true, data: draft });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: 'A record with this email already exists' });
+    }
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// DELETE /api/employees/drafts/:id — discard a draft the user owns
+const deleteDraft = async (req, res) => {
+  try {
+    const draft = await Employee.findOneAndDelete({ _id: req.params.id, isDraft: true, createdBy: req.user.id });
+    if (!draft) return res.status(404).json({ success: false, message: 'Draft not found' });
+    res.json({ success: true, message: 'Draft discarded' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // POST /api/employees  (admin/HR creates an employee record)
 //  - auto-generates a unique employee ID
 //  - validates duplicate email and employee ID
+//  - when `draftId` is supplied, promotes that draft into a finalized employee
 // ─────────────────────────────────────────────────────────────────────────────
 const createEmployee = async (req, res) => {
   try {
+    // Pull out login-account fields BEFORE normalizing (which strips them).
+    const initialPassword = req.body.password;
+    const loginRole = ['Employee', 'Manager', 'HR'].includes(req.body.loginRole)
+      ? req.body.loginRole
+      : 'Employee';
+    const draftId = req.body.draftId;
+
     const data = normalizeEmployeeData(req.body);
+    // Never persist password/loginRole/draft metadata onto the Employee document.
+    delete data.password;
+    delete data.loginRole;
+    delete data.draftId;
+    delete data.isDraft;
+    delete data.draftStep;
+    delete data.createdBy;
 
     if (!data.email) return res.status(400).json({ success: false, message: 'Email is required' });
     if (!data.name) return res.status(400).json({ success: false, message: 'Employee name is required' });
     if (!data.department) return res.status(400).json({ success: false, message: 'Department is required' });
 
-    // Validate duplicate email
-    const existing = await Employee.findOne({ email: data.email.toLowerCase() });
+    // Validate the initial login password when supplied
+    if (initialPassword !== undefined && initialPassword !== '' && String(initialPassword).length < 6) {
+      return res.status(400).json({ success: false, message: 'Initial password must be at least 6 characters' });
+    }
+
+    const emailLower = data.email.toLowerCase();
+
+    // Validate duplicate email on the Employee collection. When finalizing a
+    // draft, exclude that draft from the check — its stored email is the one we
+    // are promoting, not a genuine duplicate.
+    const dupFilter = { email: emailLower };
+    if (draftId) dupFilter._id = { $ne: draftId };
+    const existing = await Employee.findOne(dupFilter);
     if (existing) {
       return res.status(400).json({ success: false, message: 'An employee with this email already exists' });
     }
 
-    // Validate duplicate employee ID if supplied
+    // Validate duplicate employee ID if supplied, otherwise auto-generate a unique one
     if (data.employeeId) {
       const idExists = await Employee.findOne({ employeeId: data.employeeId });
       if (idExists) {
         return res.status(400).json({ success: false, message: 'An employee with this employee ID already exists' });
       }
     } else {
-      data.employeeId = await generateEmployeeId();
+      data.employeeId = await generateUniqueEmployeeId();
     }
 
     if (!data.joiningDate) data.joiningDate = new Date().toISOString().split('T')[0];
 
-    const employee = await Employee.create(data);
+    // Finalize: if a draftId is supplied, convert that existing draft document
+    // in place (so its email never collides with a freshly-created record on
+    // the partial unique index). Otherwise create a brand-new employee.
+    let employee;
+    if (draftId) {
+      employee = await Employee.findOne({ _id: draftId, isDraft: true, createdBy: req.user.id });
+      if (!employee) {
+        return res.status(404).json({ success: false, message: 'Draft not found or already finalized' });
+      }
+      Object.assign(employee, data);
+      employee.isDraft = false;
+      employee.draftStep = undefined;
+      await employee.save();
+    } else {
+      employee = await Employee.create(data);
+    }
 
-    // If a User account exists with the same email, link them
-    await User.findOneAndUpdate(
-      { email: data.email.toLowerCase() },
-      { employeeRef: employee._id, department: data.department, designation: data.designation || data.position || '' }
-    );
+    // ── Create or link the login (User) account ───────────────────────────────
+    // An employee logs in with their Employee ID + the password set here.
+    let loginAccount = await User.findOne({ email: emailLower });
 
-    res.status(201).json({ success: true, data: employee });
+    if (loginAccount) {
+      // An account already exists for this email — link it and stamp the Employee ID.
+      loginAccount.employeeRef  = employee._id;
+      loginAccount.employeeId   = loginAccount.employeeId || employee.employeeId;
+      loginAccount.department   = data.department;
+      loginAccount.designation  = data.designation || data.position || '';
+      if (initialPassword) {
+        loginAccount.password = initialPassword;         // hashed by pre-save hook
+        loginAccount.mustChangePassword = true;
+      }
+      await loginAccount.save();
+    } else {
+      // Create a brand-new Employee login account keyed by Employee ID.
+      // If no password was provided, generate a strong random one (HR can reset later).
+      const pwd = initialPassword && String(initialPassword).length >= 6
+        ? initialPassword
+        : require('crypto').randomBytes(24).toString('hex');
+
+      loginAccount = await User.create({
+        name:        data.name,
+        email:       emailLower,
+        employeeId:  employee.employeeId,
+        password:    pwd,                 // hashed by pre-save hook
+        role:        loginRole,
+        department:  data.department,
+        designation: data.designation || data.position || '',
+        phone:       data.phone || '',
+        employeeRef: employee._id,
+        mustChangePassword: Boolean(initialPassword), // only prompt if HR set a known password
+        isActive:    true,
+      });
+    }
+
+    // Link the employee record back to the login account
+    employee.userId = loginAccount._id;
+    await employee.save();
+
+    res.status(201).json({
+      success: true,
+      data: employee,
+      account: {
+        employeeId: employee.employeeId,
+        email: emailLower,
+        role: loginAccount.role,
+        hasPassword: Boolean(initialPassword),
+      },
+    });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(400).json({ success: false, message: 'An employee with this email or employee ID already exists' });
@@ -250,9 +453,13 @@ const deleteEmployee = async (req, res) => {
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
-    // Unlink the User account (do not delete the login account — that's separate)
+    // Deactivate and unlink the associated login account so a deleted employee
+    // can no longer sign in, without hard-deleting their audit trail.
     if (employee.userId) {
-      await User.findByIdAndUpdate(employee.userId, { employeeRef: null });
+      await User.findByIdAndUpdate(employee.userId, { employeeRef: null, isActive: false });
+    } else {
+      // Fall back to matching by email if the link was never set
+      await User.findOneAndUpdate({ email: employee.email?.toLowerCase() }, { employeeRef: null, isActive: false });
     }
     res.json({ success: true, message: 'Employee deleted successfully' });
   } catch (error) {
@@ -268,4 +475,8 @@ module.exports = {
   updateEmployee,
   setEmployeeStatus,
   deleteEmployee,
+  getDrafts,
+  getDraftById,
+  saveDraft,
+  deleteDraft,
 };

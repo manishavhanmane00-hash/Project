@@ -41,7 +41,11 @@ const OvertimeRecords = () => {
     overtimeEntries, addOvertime, updateOvertime, settleOvertime, deleteOvertime,
     employees, currency,
   } = useApp();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, can } = useAuth();
+  const canAdd    = can('overtime', 'add');
+  const canEdit   = can('overtime', 'edit');
+  const canDelete = can('overtime', 'delete');
+  const canSettle = can('overtime', 'manage');
 
   const fmtMoney = (n) =>
     `${currency?.symbol || ''}${Number(n || 0).toLocaleString(currency?.locale || 'en-IN', { maximumFractionDigits: 2 })}`;
@@ -68,7 +72,9 @@ const OvertimeRecords = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const canManage = isAdmin();
+  // Can this user see every record (vs only their own)? Managing/editing implies
+  // oversight; Admin always passes via can(). Falls back to legacy role check.
+  const canViewAll = canEdit || canSettle || isAdmin();
 
   // ── Load overtime records with loading + error handling (Req 8.1, 17.1, 17.3)
   const load = useCallback(async () => {
@@ -96,13 +102,13 @@ const OvertimeRecords = () => {
 
   // ── Employee scoping (Req 8.2): employees only see their own entries ────────
   const scoped = useMemo(() => {
-    if (canManage) return records;
+    if (canViewAll) return records;
     return records.filter(r =>
       (user?._id && (r.userId === user._id || r.userId?.toString?.() === user._id)) ||
       (user?.id && r.userId === user.id) ||
       (user?.email && r.email === user.email)
     );
-  }, [records, canManage, user]);
+  }, [records, canViewAll, user]);
 
   // ── Filtering (Req 12.1) via shared selector; status field = status ─────────
   const filtered = useMemo(() => {
@@ -325,7 +331,7 @@ const OvertimeRecords = () => {
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-outline" onClick={handlePrint} title="Print filtered records"><Printer size={14} /> Print</button>
             <button className="btn btn-outline" onClick={handleExport} title="Export filtered records"><Download size={14} /> Export</button>
-            {canManage && <button className="btn btn-primary" onClick={openAdd}><Plus size={14} /> Log Overtime</button>}
+            {canAdd && <button className="btn btn-primary" onClick={openAdd}><Plus size={14} /> Log Overtime</button>}
           </div>
         </div>
       </div>
@@ -398,18 +404,16 @@ const OvertimeRecords = () => {
                 <td>
                   <div className="table-actions">
                     <button className="btn-icon primary" onClick={() => setViewEntry(entry)} title="View Details"><Eye size={13} /></button>
-                    {canManage && (
-                      <>
-                        {entry.status === 'Pending' && (
-                          <>
-                            <button className="btn-icon" onClick={() => openEdit(entry)} title="Edit"><Pencil size={13} /></button>
-                            <button className="btn-icon" style={{ color: 'var(--success)', borderColor: 'var(--success-light)' }} onClick={() => setSettleTarget(entry)} title="Settle (mark Paid)">
-                              <CheckCircle size={13} />
-                            </button>
-                          </>
-                        )}
-                        <button className="btn-icon danger" onClick={() => setDeleteTarget(entry)} title="Delete"><Trash2 size={13} /></button>
-                      </>
+                    {entry.status === 'Pending' && canEdit && (
+                      <button className="btn-icon" onClick={() => openEdit(entry)} title="Edit"><Pencil size={13} /></button>
+                    )}
+                    {entry.status === 'Pending' && canSettle && (
+                      <button className="btn-icon" style={{ color: 'var(--success)', borderColor: 'var(--success-light)' }} onClick={() => setSettleTarget(entry)} title="Settle (mark Paid)">
+                        <CheckCircle size={13} />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button className="btn-icon danger" onClick={() => setDeleteTarget(entry)} title="Delete"><Trash2 size={13} /></button>
                     )}
                   </div>
                 </td>
@@ -429,7 +433,7 @@ const OvertimeRecords = () => {
           footer={
             <>
               <button className="btn btn-outline" onClick={() => setViewEntry(null)}>Close</button>
-              {viewEntry.status === 'Pending' && canManage && (
+              {viewEntry.status === 'Pending' && canSettle && (
                 <button className="btn btn-success" onClick={() => { setSettleTarget(viewEntry); }}>Mark as Paid</button>
               )}
             </>

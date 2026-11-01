@@ -1,20 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { checkAction } = require('../middleware/checkPermission');
 const {
   getDepartments, getDepartmentById, createDepartment, updateDepartment, deleteDepartment,
 } = require('../controllers/departmentController');
 
-// Any authenticated user can list/view departments
 router.use(protect);
 
+// Reads stay open to any authenticated user: department lists feed form dropdowns
+// (e.g. Add Employee) across the app regardless of the Departments module toggle.
 router.route('/')
   .get(getDepartments)
-  .post(adminOnly, createDepartment);
+  .post(checkAction('departments', 'add'), createDepartment);
 
 router.route('/:id')
   .get(getDepartmentById)
-  .put(adminOnly, updateDepartment)
-  .delete(adminOnly, deleteDepartment);
+  .put(checkAction('departments', 'edit'), updateDepartment)
+  .delete(checkAction('departments', 'delete'), deleteDepartment);
 
 module.exports = router;

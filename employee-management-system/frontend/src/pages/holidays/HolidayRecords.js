@@ -64,7 +64,10 @@ const emptyForm = {
 
 const HolidayRecords = () => {
   const { holidays, addHoliday, updateHoliday, deleteHoliday, employees } = useApp();
-  const { isAdmin } = useAuth();
+  const { can } = useAuth();
+  const canAdd    = can('holidays', 'add');
+  const canEdit   = can('holidays', 'edit');
+  const canDelete = can('holidays', 'delete');
 
   // ── Local list state (skeleton + retain last data on error) ───────────────
   const [records, setRecords] = useState(holidays);
@@ -86,8 +89,6 @@ const HolidayRecords = () => {
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
-
-  const canManage = isAdmin();
 
   // ── Load holidays with loading + error handling (Req 5.1, 17.1, 17.3) ─────
   const load = useCallback(async () => {
@@ -346,7 +347,7 @@ const HolidayRecords = () => {
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-outline" onClick={handlePrint} title="Print filtered records"><Printer size={14} /> Print</button>
             <button className="btn btn-outline" onClick={handleExport} title="Export filtered records"><Download size={14} /> Export</button>
-            {canManage && <button className="btn btn-primary" onClick={openAdd}><Plus size={14} /> Add Holiday</button>}
+            {canAdd && <button className="btn btn-primary" onClick={openAdd}><Plus size={14} /> Add Holiday</button>}
           </div>
         </div>
       </div>
@@ -419,11 +420,11 @@ const HolidayRecords = () => {
                 <td>
                   <div className="table-actions">
                     <button className="btn-icon primary" onClick={() => setViewHoliday(h)} title="View Details"><Eye size={13} /></button>
-                    {canManage && (
-                      <>
-                        <button className="btn-icon" onClick={() => openEdit(h)} title="Edit"><Pencil size={13} /></button>
-                        <button className="btn-icon danger" onClick={() => setDeleteTarget(h)} title="Delete"><Trash2 size={13} /></button>
-                      </>
+                    {canEdit && (
+                      <button className="btn-icon" onClick={() => openEdit(h)} title="Edit"><Pencil size={13} /></button>
+                    )}
+                    {canDelete && (
+                      <button className="btn-icon danger" onClick={() => setDeleteTarget(h)} title="Delete"><Trash2 size={13} /></button>
                     )}
                   </div>
                 </td>

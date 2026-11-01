@@ -21,6 +21,8 @@ const safeUser = (user) => ({
   id:          user._id.toString(),
   name:        user.name,
   email:       user.email,
+  employeeId:  user.employeeId || null,
+  mustChangePassword: user.mustChangePassword === true,
   role:        user.role,
   designation: user.designation,
   department:  user.department,
@@ -156,22 +158,31 @@ const adminCreateUser = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    // Accept either `identifier` (Employee ID OR email) or legacy `email`.
+    const rawId = (req.body.identifier ?? req.body.email ?? req.body.employeeId ?? '').toString().trim();
+    const { password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    if (!rawId || !password) {
+      return res.status(400).json({ success: false, message: 'Employee ID / email and password are required' });
     }
 
+    // Decide how to look the user up. An Employee ID is matched case-insensitively
+    // against the employeeId field; anything containing "@" is treated as an email.
+    const looksLikeEmail = rawId.includes('@');
+    const query = looksLikeEmail
+      ? { email: rawId.toLowerCase() }
+      : { employeeId: new RegExp(`^${rawId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+
     // Explicitly select password (it has select: false in schema)
-    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
+    const user = await User.findOne(query).select('+password');
     if (!user) {
-      // Return same message for unknown email and wrong password — prevents email enumeration
-      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+      // Same message for unknown id and wrong password — prevents account enumeration
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     if (!user.isActive) {
@@ -374,6 +385,7 @@ const changePassword = async (req, res) => {
     }
 
     user.password = newPassword; // will be hashed by pre-save hook
+    user.mustChangePassword = false; // cleared once the employee sets their own password
     await user.save();
 
     res.json({ success: true, message: 'Password changed successfully' });
@@ -425,9 +437,34 @@ const setUserStatus = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/auth/users/:id/reset-password   (adminOnly: Admin/HR)
+// HR/Admin sets a new password for a user (e.g. an employee who forgot theirs).
+// The user is flagged to change it on next login.
+// ─────────────────────────────────────────────────────────────────────────────
+const resetUserPassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || String(newPassword).length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+    }
+
+    const user = await User.findById(req.params.id).select('+password');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    user.password = newPassword;          // hashed by pre-save hook
+    user.mustChangePassword = true;        // force change on next login
+    await user.save();
+
+    res.json({ success: true, message: 'Password reset successfully. The user must change it on next login.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   register, login, googleLogin,
   getMe, updateMe, changePassword,
   forgotPassword, setUserStatus,
-  adminCreateUser,
+  adminCreateUser, resetUserPassword,
 };

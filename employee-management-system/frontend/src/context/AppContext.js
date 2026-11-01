@@ -179,6 +179,34 @@ export const AppProvider = ({ children }) => {
     throw new Error(data.message);
   };
 
+  // ── Employee drafts (resume-able partially-filled forms) ────────────────────
+  const getEmployeeDrafts = async () => {
+    const { data } = await employeeAPI.getDrafts();
+    if (data.success) return data.data;
+    throw new Error(data.message);
+  };
+
+  const getEmployeeDraft = async (id) => {
+    const { data } = await employeeAPI.getDraft(id);
+    if (data.success) return data.data;
+    throw new Error(data.message);
+  };
+
+  // Create or update a draft depending on whether a draftId is provided.
+  const saveEmployeeDraft = async (draftId, draftData) => {
+    const { data } = draftId
+      ? await employeeAPI.updateDraft(draftId, draftData)
+      : await employeeAPI.createDraft(draftData);
+    if (data.success) return data.data;
+    throw new Error(data.message);
+  };
+
+  const deleteEmployeeDraft = async (id) => {
+    const { data } = await employeeAPI.deleteDraft(id);
+    if (data.success) return data.data;
+    throw new Error(data.message);
+  };
+
   // ── Department CRUD ──────────────────────────────────────────────────────────
   const addDepartment = async (dept) => {
     const { data } = await departmentAPI.create(dept);
@@ -422,6 +450,7 @@ export const AppProvider = ({ children }) => {
     mobileSidebarOpen, setMobileSidebarOpen,
     currency,
     employees,    addEmployee,    updateEmployee,    deleteEmployee,    setEmployeeStatus,
+    getEmployeeDrafts, getEmployeeDraft, saveEmployeeDraft, deleteEmployeeDraft,
     departments,  addDepartment,  updateDepartment,  deleteDepartment,  fetchDepartments,
     designations,
     attendanceData, markAttendance, selfMarkAttendance, doCheckIn, doCheckOut,

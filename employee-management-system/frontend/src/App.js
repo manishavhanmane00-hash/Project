@@ -64,6 +64,12 @@ import EmployeePerformance  from './pages/employee/EmployeePerformance';
 import EmployeeNotifications from './pages/employee/EmployeeNotifications';
 import EmployeeSettings     from './pages/employee/EmployeeSettings';
 
+// Shared modules reused inside the Employee portal (data is role-scoped to the
+// logged-in employee by the backend; action buttons are gated by permissions).
+import EmpHolidayCalendar from './pages/holidays/HolidayCalendar';
+import EmpOvertimeRecords from './pages/overtime/OvertimeRecords';
+import EmpAdvanceRecords  from './pages/advances/AdvanceRecords';
+
 function App() {
   return (
     <AuthProvider>
@@ -103,6 +109,12 @@ function App() {
               <Route path="/employee/leave"        element={<EmployeeLeave />} />
               <Route path="/employee/payroll"      element={<EmployeePayroll />} />
               <Route path="/employee/performance"  element={<EmployeePerformance />} />
+
+              {/* Shared modules — gated by Admin-configured Employee permissions */}
+              <Route path="/employee/holidays"  element={<ProtectedModule moduleKey="holidays.calendar"><EmpHolidayCalendar /></ProtectedModule>} />
+              <Route path="/employee/overtime"  element={<ProtectedModule moduleKey="overtime.records"><EmpOvertimeRecords /></ProtectedModule>} />
+              <Route path="/employee/advances"  element={<ProtectedModule moduleKey="advances.records"><EmpAdvanceRecords /></ProtectedModule>} />
+
               <Route path="/employee/notifications" element={<EmployeeNotifications />} />
               <Route path="/employee/settings"     element={<EmployeeSettings />} />
               {/* Any unknown /employee/* path */}

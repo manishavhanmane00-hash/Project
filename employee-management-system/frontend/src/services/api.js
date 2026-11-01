@@ -41,6 +41,7 @@ export const authAPI = {
   getUsers:       ()     => api.get('/auth/users'),
   setUserStatus:  (id, data) => api.put(`/auth/users/${id}/status`, data),
   createUser:     (data) => api.post('/auth/users', data),
+  resetUserPassword: (id, data) => api.put(`/auth/users/${id}/reset-password`, data),
 };
 
 // ── Role Permissions (Admin only) ──────────────────────────────────────────────
@@ -59,6 +60,12 @@ export const employeeAPI = {
   update:       (id, data) => api.put(`/employees/${id}`, data),
   setStatus:    (id, data) => api.patch(`/employees/${id}/status`, data),
   delete:       (id)       => api.delete(`/employees/${id}`),
+  // Drafts — partially-filled employee records that can be resumed later
+  getDrafts:    ()         => api.get('/employees/drafts'),
+  getDraft:     (id)       => api.get(`/employees/drafts/${id}`),
+  createDraft:  (data)     => api.post('/employees/drafts', data),
+  updateDraft:  (id, data) => api.put(`/employees/drafts/${id}`, data),
+  deleteDraft:  (id)       => api.delete(`/employees/drafts/${id}`),
 };
 
 // ── Departments ───────────────────────────────────────────────────────────────
